@@ -12,19 +12,26 @@ type DailyCapacityIndicatorProps = {
 
 export default function DailyCapacityIndicator({ utilization, assigned, capacity }: DailyCapacityIndicatorProps) {
   const getBackgroundColor = (util: number) => {
-    if (util > 0.9) return 'bg-red-200/50';
-    if (util > 0.7) return 'bg-yellow-200/50';
-    if (util > 0) return 'bg-green-200/50';
+    if (util > 1) return 'bg-red-500/80';
+    if (util > 0.9) return 'bg-red-400/60';
+    if (util > 0.7) return 'bg-yellow-400/60';
+    if (util > 0) return 'bg-green-400/50';
     return 'bg-transparent';
   };
 
   const colorClass = getBackgroundColor(utilization);
+  const cappedUtilization = Math.min(utilization, 1);
 
   return (
     <TooltipProvider delayDuration={300}>
       <Tooltip>
         <TooltipTrigger asChild>
-          <div className={cn("absolute inset-0 z-0", colorClass)}></div>
+          <div className="absolute inset-0 z-0 overflow-hidden">
+            <div 
+              className={cn("absolute bottom-0 left-0 right-0", colorClass)}
+              style={{ height: `${cappedUtilization * 100}%` }}
+            ></div>
+          </div>
         </TooltipTrigger>
         <TooltipContent>
           <p>Capacity: {capacity.toLocaleString()}</p>

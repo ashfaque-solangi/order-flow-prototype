@@ -37,20 +37,21 @@ export default function TimelineSection({ units, selectedMonth, allLines, orderC
       <h2 className="text-lg font-semibold mb-2 flex items-center"><CalendarDays className="w-5 h-5 mr-2 text-primary" /> Production Line Timeline</h2>
       <ScrollArea className="flex-1 rounded-lg border bg-card">
         <div className="relative p-4">
-          <div className="grid gap-y-2" style={{ gridTemplateColumns: `180px repeat(${days.length}, minmax(40px, 1fr))` }}>
+          <div className="grid items-center" style={{ gridTemplateColumns: `180px repeat(${days.length}, minmax(40px, 1fr))` }}>
             {/* Header */}
-            <div className="sticky top-0 z-10 bg-card font-semibold text-sm text-muted-foreground pl-2">Line / Unit</div>
+            <div className="sticky top-0 z-30 bg-card font-semibold text-sm text-muted-foreground pl-2 h-full flex items-end pb-1">Line / Unit</div>
             {days.map(day => (
-              <div key={day.toISOString()} className="sticky top-0 z-10 bg-card text-center font-semibold text-sm">
+              <div key={day.toISOString()} className="sticky top-0 z-30 bg-card text-center font-semibold text-sm h-full flex flex-col justify-end">
+                <div className='flex-grow' />
                 <span className={`flex items-center justify-center w-8 h-8 rounded-full mx-auto ${isToday(day) ? "bg-primary text-primary-foreground" : ""}`}>
                   {format(day, 'd')}
                 </span>
-                 <span className="text-xs text-muted-foreground">{format(day, 'EEE')}</span>
+                 <span className="text-xs text-muted-foreground mt-1">{format(day, 'EEE')}</span>
               </div>
             ))}
 
             {/* Body */}
-            {allLines.map((line) => (
+            {allLines.map((line, index) => (
               <TimelineRow 
                 key={line.id} 
                 line={line} 

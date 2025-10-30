@@ -36,29 +36,32 @@ export default function TimelineRow({ line, days, monthStart, orderColorMap }: T
 
   return (
     <div className="contents group">
-        {/* Row Header */}
-        <div className="text-sm border-t pt-2 pl-2 sticky left-0 bg-card z-20">
+        {/* Row Header - STABLE */}
+        <div className="text-sm pt-2 pl-2 sticky left-0 bg-card z-20 border-t border-b group-hover:bg-muted/50">
             <p className="font-semibold">{line.name}</p>
             <p className="text-xs text-muted-foreground">{line.unitName}</p>
         </div>
 
         {/* Daily Cells */}
-        {days.map((day, dayIndex) => {
-            const dayKey = day.toISOString().split('T')[0];
-            const totalAssignedQuantity = dailyUsage[dayKey] || 0;
-            const utilization = line.dailyCap > 0 ? totalAssignedQuantity / line.dailyCap : 0;
-            
-            return (
-                <TimelineCell 
-                    key={`${line.id}-${day.toISOString()}`}
-                    lineId={line.id}
-                    date={day}
-                    utilization={utilization}
-                    assigned={Math.round(totalAssignedQuantity)}
-                    capacity={line.dailyCap}
-                />
-            );
-        })}
+        <div className="col-start-2 col-end-[-1] grid grid-cols-subgrid">
+            {days.map((day, dayIndex) => {
+                const dayKey = day.toISOString().split('T')[0];
+                const totalAssignedQuantity = dailyUsage[dayKey] || 0;
+                const utilization = line.dailyCap > 0 ? totalAssignedQuantity / line.dailyCap : 0;
+                
+                return (
+                    <TimelineCell 
+                        key={`${line.id}-${day.toISOString()}`}
+                        lineId={line.id}
+                        date={day}
+                        utilization={utilization}
+                        assigned={Math.round(totalAssignedQuantity)}
+                        capacity={line.dailyCap}
+                    />
+                );
+            })}
+        </div>
+
 
         {/* Assignment Bars */}
         {line.assignments.map((assignment) => {
@@ -66,33 +69,37 @@ export default function TimelineRow({ line, days, monthStart, orderColorMap }: T
                 const startDate = parseISO(assignment.startDate);
                 const endDate = parseISO(assignment.endDate);
                 
-                const startDay = differenceInDays(startDate, monthStart) + 1;
+                const startDay = differenceInDays(startDate, monthStart);
                 const duration = differenceInDays(endDate, startDate) + 1;
                 
-                const clampedStartDay = Math.max(1, startDay);
-                const endOfMonth = days.length;
+                const monthDays = days.length;
                 
-                const clampedEndDay = Math.min(startDay + duration -1, endOfMonth);
-                const clampedDuration = clampedEndDay - clampedStartDay + 1;
-
-                if (clampedDuration > 0 && clampedStartDay <= endOfMonth) {
-                    return (
-                        <div
-                            key={assignment.id}
-                            className="h-10 self-center z-10"
-                            style={{
-                                gridColumn: `${clampedStartDay + 1} / span ${clampedDuration}`,
-                                gridRow: 'auto',
-                            }}
-                        >
-                           <TimelineAssignment
-                                assignment={assignment}
-                                color={orderColorMap[assignment.orderId] || 'bg-gray-500'}
-                            />
-                        </div>
-                    );
+                if (startDay + duration < 0 || startDay >= monthDays) {
+                    return null;
                 }
-                return null;
+
+                const clampedStart = Math.max(startDay, 0);
+                const clampedEnd = Math.min(startDay + duration - 1, monthDays - 1);
+                const clampedDuration = clampedEnd - clampedStart + 1;
+
+                if (clampedDuration <= 0) {
+                    return null;
+                }
+
+                return (
+                    <div
+                        key={assignment.id}
+                        className="h-10 self-center z-10 row-start-auto"
+                        style={{
+                            gridColumn: `${clampedStart + 2} / span ${clampedDuration}`,
+                        }}
+                    >
+                       <TimelineAssignment
+                            assignment={assignment}
+                            color={orderColorMap[assignment.orderId] || 'bg-gray-500'}
+                        />
+                    </div>
+                );
             } catch (e) {
                 console.error("Error parsing assignment date:", e, assignment);
                 return null;
