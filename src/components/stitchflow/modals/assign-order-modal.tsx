@@ -68,15 +68,48 @@ export default function AssignOrderModal({ isOpen, onClose, order, unit, onAssig
     const toDate = dateRange.to || dateRange.from;
     return differenceInDays(toDate, dateRange.from) + 1;
   }, [dateRange]);
+  
+  const totalAssignedQuantity = useMemo(() => {
+    return assignments.reduce((sum, a) => sum + Number(a.quantity || 0), 0);
+  }, [assignments]);
+
+  // Auto-calculate quantity when dependencies change
+  useEffect(() => {
+    if (productionDays <= 0 || assignments.length === 0) return;
+
+    let totalAllocated = 0;
+    const updatedAssignments = assignments.map(assignment => {
+      const line = unit.lines.find(l => l.id === assignment.lineId);
+      if (!line) return assignment;
+
+      const remainingOrderQty = order.qty.remaining - totalAllocated;
+      const potentialQtyForLine = line.dailyCap * productionDays;
+      const qtyToAssign = Math.min(potentialQtyForLine, remainingOrderQty);
+      
+      totalAllocated += qtyToAssign;
+
+      return { ...assignment, quantity: qtyToAssign };
+    });
+
+    setAssignments(updatedAssignments);
+
+  }, [dateRange, unit.lines, order.qty.remaining]); // Reruns when date or unit changes, but not assignments to avoid loops
 
   const handleAddLine = () => {
     const availableLines = unit.lines.filter(l => !assignments.some(a => a.lineId === l.id));
     if (availableLines.length > 0) {
       const firstAvailableLine = availableLines[0];
+      
+      const remainingOrderQty = order.qty.remaining - totalAssignedQuantity;
+      const potentialQty = (productionDays > 0 && firstAvailableLine.dailyCap > 0) 
+        ? firstAvailableLine.dailyCap * productionDays
+        : 0;
+      const initialQty = Math.min(potentialQty, remainingOrderQty);
+
       const newAssignment: AssignmentRow = {
         id: `temp-${Date.now()}`,
         lineId: firstAvailableLine.id,
-        quantity: 0
+        quantity: initialQty
       };
       setAssignments(prev => [...prev, newAssignment]);
     }
@@ -87,40 +120,28 @@ export default function AssignOrderModal({ isOpen, onClose, order, unit, onAssig
   };
   
   const handleLineChange = (tempId: string, newLineId: string) => {
-    setAssignments(prev => prev.map(a => a.id === tempId ? { ...a, lineId: newLineId } : a));
+     setAssignments(prev => {
+        let totalAllocated = 0;
+        const tempAssignments = prev.map(a => a.id === tempId ? { ...a, lineId: newLineId } : a);
+
+        return tempAssignments.map(assignment => {
+            const line = unit.lines.find(l => l.id === assignment.lineId);
+            if (!line) return assignment;
+
+            const remainingOrderQty = order.qty.remaining - totalAllocated;
+            const potentialQtyForLine = line.dailyCap * productionDays;
+            const qtyToAssign = Math.min(potentialQtyForLine, remainingOrderQty);
+            
+            totalAllocated += qtyToAssign;
+
+            return { ...assignment, quantity: qtyToAssign };
+        });
+    });
   };
 
   const handleQuantityChange = (tempId: string, newQuantity: number) => {
     setAssignments(prev => prev.map(a => a.id === tempId ? { ...a, quantity: newQuantity } : a));
   };
-  
-  // Auto-calculate quantity when dependencies change
-  useEffect(() => {
-    if (!productionDays) return;
-
-    setAssignments(prevAssignments => {
-      let remainingQtyForOrder = order.qty.remaining;
-      const updatedAssignments = [...prevAssignments];
-
-      // First pass: calculate potential and update quantities
-      for (let i = 0; i < updatedAssignments.length; i++) {
-        const assignment = updatedAssignments[i];
-        const line = unit.lines.find(l => l.id === assignment.lineId);
-        if (line) {
-          const potentialQty = productionDays * line.dailyCap;
-          const qtyToAssign = Math.min(potentialQty, remainingQtyForOrder);
-          updatedAssignments[i] = { ...assignment, quantity: qtyToAssign };
-          remainingQtyForOrder -= qtyToAssign;
-        }
-      }
-      return updatedAssignments;
-    });
-  }, [dateRange, productionDays, order.qty.remaining, unit.lines]);
-
-
-  const totalAssignedQuantity = useMemo(() => {
-    return assignments.reduce((sum, a) => sum + Number(a.quantity || 0), 0);
-  }, [assignments]);
 
   const remainingQuantityForOrder = order.qty.remaining - totalAssignedQuantity;
 
@@ -259,6 +280,7 @@ export default function AssignOrderModal({ isOpen, onClose, order, unit, onAssig
                              <Select 
                                 value={assignment.lineId}
                                 onValueChange={(newLineId) => handleLineChange(assignment.id, newLineId)}
+                                disabled={isSubmitting}
                             >
                                 <SelectTrigger id={`line-${assignment.id}`}>
                                     <SelectValue placeholder="Select a line" />
@@ -279,15 +301,21 @@ export default function AssignOrderModal({ isOpen, onClose, order, unit, onAssig
                               onChange={e => handleQuantityChange(assignment.id, Number(e.target.value))}
                               max={order.qty.remaining + (assignments.find(a=>a.id===assignment.id)?.quantity || 0)}
                               placeholder="0"
+                              disabled={isSubmitting}
                             />
                           </div>
                            <div className="col-span-4 space-y-1.5">
-                                <Label>Line Capacity (Monthly)</Label>
-                                {selectedLine && <CapacityBar total={lineCapacity} used={currentAssigned + assignment.quantity} />}
+                                <Label>Capacity <span className='text-xs text-muted-foreground'>(Daily / Monthly)</span></Label>
+                                {selectedLine && 
+                                  <div>
+                                    <CapacityBar total={lineCapacity} used={currentAssigned + assignment.quantity} />
+                                    <div className="text-xs mt-1 text-muted-foreground">Daily: <strong>{selectedLine.dailyCap.toLocaleString()}</strong></div>
+                                  </div>
+                                }
                            </div>
 
                           <div className="col-span-1">
-                             <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-destructive" onClick={() => handleRemoveLine(assignment.id)}>
+                             <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground hover:text-destructive" onClick={() => handleRemoveLine(assignment.id)} disabled={isSubmitting}>
                                 <Trash2 className="h-4 w-4"/>
                             </Button>
                           </div>
@@ -328,5 +356,3 @@ export default function AssignOrderModal({ isOpen, onClose, order, unit, onAssig
     </Dialog>
   );
 }
-
-    
