@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useMemo } from 'react';
@@ -54,7 +53,8 @@ export default function TimelineSection({ units, selectedMonth, allLines, orderC
             {allLines.map((line, index) => (
               <TimelineRow 
                 key={line.id} 
-                line={line} 
+                line={line}
+                rowIndex={index + 2}
                 days={days} 
                 monthStart={monthStart}
                 orderColorMap={orderColorMap}

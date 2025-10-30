@@ -12,9 +12,10 @@ type TimelineRowProps = {
   days: Date[];
   monthStart: Date;
   orderColorMap: Record<string, string>;
+  rowIndex: number;
 };
 
-export default function TimelineRow({ line, days, monthStart, orderColorMap }: TimelineRowProps) {
+export default function TimelineRow({ line, days, monthStart, orderColorMap, rowIndex }: TimelineRowProps) {
     
   const dailyUsage = useMemo(() => {
     const usage: Record<string, number> = {};
@@ -89,9 +90,10 @@ export default function TimelineRow({ line, days, monthStart, orderColorMap }: T
                 return (
                     <div
                         key={assignment.id}
-                        className="h-10 self-center z-10 row-start-auto"
+                        className="h-10 self-center z-10"
                         style={{
                             gridColumn: `${clampedStart + 2} / span ${clampedDuration}`,
+                            gridRow: rowIndex
                         }}
                     >
                        <TimelineAssignment
