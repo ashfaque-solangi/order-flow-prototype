@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -52,23 +53,35 @@ export default function AssignOrderModal({ isOpen, onClose, order, units, onAssi
     if (selectedUnitId) {
       return units.find(u => u.id === selectedUnitId)?.lines || [];
     }
-    return units.flatMap(u => u.lines);
+    // If no unit is selected, don't show any lines.
+    return [];
   }, [units, selectedUnitId]);
 
   useEffect(() => {
+    // When the modal opens with a preselected unit, set it.
+    // Also reset the line selection.
     if (preselectedUnitId) {
       setSelectedUnitId(preselectedUnitId);
-      // Reset line if unit changes
+      setSelectedLineId('');
+    } else {
+      // If modal opens without a preselection (e.g. "Assign" button), clear selections.
+      setSelectedUnitId(undefined);
       setSelectedLineId('');
     }
-  }, [preselectedUnitId]);
+    // Reset other fields when modal opens
+    setQuantity(order.qty.remaining);
+    setDateRange({ from: new Date(), to: addDays(new Date(), 1) });
+    setError(null);
+    setIsSubmitting(false);
+
+  }, [isOpen, preselectedUnitId, order.qty.remaining]);
   
   useEffect(() => {
-    // If there's a preselected unit and only one line, auto-select it.
-    if (preselectedUnitId && availableLines.length === 1) {
+    // If there's a selected unit and only one line, auto-select it.
+    if (selectedUnitId && availableLines.length === 1) {
         setSelectedLineId(availableLines[0].id);
     }
-  }, [preselectedUnitId, availableLines]);
+  }, [selectedUnitId, availableLines]);
 
 
   const selectedLine = useMemo(() => {
@@ -147,26 +160,24 @@ export default function AssignOrderModal({ isOpen, onClose, order, units, onAssi
                 <AlertDescription>{error}</AlertDescription>
             </Alert>
           )}
-          {!preselectedUnitId && (
-            <div className="space-y-2">
-              <Label htmlFor="unit">Production Unit</Label>
-              <Select value={selectedUnitId} onValueChange={setSelectedUnitId}>
-                <SelectTrigger id="unit">
-                  <SelectValue placeholder="Select a unit" />
-                </SelectTrigger>
-                <SelectContent>
-                  {units.map(unit => (
-                    <SelectItem key={unit.id} value={unit.id}>{unit.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
+          <div className="space-y-2">
+            <Label htmlFor="unit">Production Unit</Label>
+            <Select value={selectedUnitId} onValueChange={setSelectedUnitId}>
+              <SelectTrigger id="unit">
+                <SelectValue placeholder="Select a unit" />
+              </SelectTrigger>
+              <SelectContent>
+                {units.map(unit => (
+                  <SelectItem key={unit.id} value={unit.id}>{unit.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <div className="space-y-2">
             <Label htmlFor="line">Production Line</Label>
             <Select value={selectedLineId} onValueChange={setSelectedLineId} disabled={!selectedUnitId}>
               <SelectTrigger id="line">
-                <SelectValue placeholder="Select a line" />
+                <SelectValue placeholder={!selectedUnitId ? "Select a unit first" : "Select a line"} />
               </SelectTrigger>
               <SelectContent>
                  {availableLines.map(line => (

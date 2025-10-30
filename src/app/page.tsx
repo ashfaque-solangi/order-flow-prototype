@@ -13,7 +13,7 @@ import FiltersModal from '@/components/stitchflow/modals/filters-modal';
 import { useToast } from '@/hooks/use-toast';
 import { validateCapacity } from '@/ai/flows/capacity-validation';
 import { format } from 'date-fns';
-import { DragEndEvent } from '@dnd-kit/core';
+import { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import type { ProductionLine, Assignment } from '@/lib/data';
 import { ClientOnlyDndProvider } from '@/components/stitchflow/dnd-provider';
 
@@ -92,7 +92,7 @@ export default function StitchFlowPage() {
     }
   };
   
-  const handleDragStart = (event: DragEndEvent) => {
+  const handleDragStart = (event: DragStartEvent) => {
     const order = orders.find(o => o.id === event.active.id);
     if (order) {
       setActiveOrder(order);
@@ -341,6 +341,7 @@ export default function StitchFlowPage() {
             onClose={() => {
               setAssignModalOpen(false);
               setSelectedUnitId(null);
+              setSelectedOrderId(null);
             }}
             order={selectedOrder}
             units={units}
@@ -370,3 +371,5 @@ export default function StitchFlowPage() {
     </ClientOnlyDndProvider>
   );
 }
+
+    

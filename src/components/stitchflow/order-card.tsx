@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Order } from '@/lib/data';
@@ -37,13 +38,14 @@ export default function OrderCard({ order, onAssign, isDragging }: OrderCardProp
       className={cn(
         "w-[320px] shrink-0 flex flex-col transition-shadow hover:shadow-lg",
         (dndIsDragging || isDragging) && "shadow-2xl z-50 scale-105",
+        !isAssignable && "opacity-60 bg-slate-50",
         !isDragging && "touch-none"
       )}
     >
-      <CardHeader className="pb-2" {...listeners} {...attributes}>
+      <CardHeader className="pb-2 cursor-grab" {...listeners} {...attributes}>
         <div className="flex justify-between items-start">
             <div>
-                <CardTitle className="text-lg flex items-center gap-2 cursor-grab">
+                <CardTitle className="text-lg flex items-center gap-2">
                     <Package className="w-5 h-5 text-primary" />
                     {order.order_num}
                 </CardTitle>
@@ -92,3 +94,5 @@ export default function OrderCard({ order, onAssign, isDragging }: OrderCardProp
     </Card>
   );
 }
+
+    
