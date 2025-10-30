@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -328,7 +329,7 @@ export default function StitchFlowPage() {
           selectedMonth={selectedMonth}
           setSelectedMonth={setSelectedMonth}
         />
-        <main className="grid flex-1 grid-rows-3 gap-6 p-4 lg:p-6 overflow-hidden">
+        <main className="flex-1 grid grid-rows-[auto,auto,1fr] gap-6 p-4 lg:p-6 overflow-hidden">
           <OrdersSection orders={availableOrders} onAssign={handleOpenAssignModal} />
           <UnitsSection units={units} onUnassign={handleUnassignOrder} />
           <TimelineSection units={units} selectedMonth={selectedMonth} />
