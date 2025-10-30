@@ -12,7 +12,7 @@ import TentativeOrderModal from '@/components/stitchflow/modals/tentative-order-
 import FiltersModal from '@/components/stitchflow/modals/filters-modal';
 import { useToast } from '@/hooks/use-toast';
 import { validateCapacity } from '@/ai/flows/capacity-validation';
-import { format } from 'date-fns';
+import { format, differenceInDays } from 'date-fns';
 import { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
 import type { ProductionLine, Assignment } from '@/lib/data';
 import { ClientOnlyDndProvider } from '@/components/stitchflow/dnd-provider';
@@ -52,7 +52,8 @@ export default function StitchFlowPage() {
   const [isFiltersModalOpen, setFiltersModalOpen] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
-  const [activeOrder, setActiveOrder] = useState<Order | null>(null);
+  const [activeItem, setActiveItem] = useState<Order | Assignment | null>(null);
+
 
   const { toast } = useToast();
 
@@ -93,20 +94,37 @@ export default function StitchFlowPage() {
   };
   
   const handleDragStart = (event: DragStartEvent) => {
-    const order = orders.find(o => o.id === event.active.id);
-    if (order) {
-      setActiveOrder(order);
+    const { active } = event;
+    if (active.data.current?.type === 'order') {
+        const order = orders.find(o => o.id === active.id);
+        if (order) setActiveItem(order);
+    } else if (active.data.current?.type === 'assignment') {
+        const assignment = active.data.current.assignment as Assignment;
+        if(assignment) setActiveItem(assignment);
     }
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
-    setActiveOrder(null);
+    setActiveItem(null);
     const { active, over } = event;
 
-    if (active.id && over && over.data.current?.type === 'unit') {
+    if (!active.id || !over) return;
+
+    // Dragging an OrderCard to a UnitCard
+    if (active.data.current?.type === 'order' && over.data.current?.type === 'unit') {
       const orderId = active.id as string;
       const unitId = over.id as string;
       handleOpenAssignModal(orderId, unitId);
+    }
+
+    // Dragging an assignment within the timeline
+    if (active.data.current?.type === 'assignment' && over.data.current?.type === 'timeline-cell') {
+        const assignment = active.data.current.assignment as Assignment;
+        const sourceLineId = active.data.current.lineId as string;
+        const targetLineId = over.data.current.lineId as string;
+        const newStartDate = over.data.current.date as Date;
+        
+        handleMoveAssignment(assignment, sourceLineId, targetLineId, newStartDate);
     }
   };
 
@@ -298,6 +316,59 @@ export default function StitchFlowPage() {
       description: `Order ${newOrder.order_num} has been added to the list.`,
     });
   };
+
+  const handleMoveAssignment = (assignment: Assignment, sourceLineId: string, targetLineId: string, newStartDate: Date) => {
+    const allLines = units.flatMap(u => u.lines);
+    const sourceLine = allLines.find(l => l.id === sourceLineId);
+    const targetLine = allLines.find(l => l.id === targetLineId);
+
+    if (!sourceLine || !targetLine) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Could not find source or target line.' });
+        return;
+    }
+
+    const duration = differenceInDays(new Date(assignment.endDate), new Date(assignment.startDate));
+    const newEndDate = new Date(newStartDate);
+    newEndDate.setDate(newEndDate.getDate() + duration);
+
+    // Basic capacity check
+    const requiredDays = duration + 1;
+    const requiredCapacity = assignment.quantity;
+    const availableCapacity = targetLine.dailyCap * requiredDays;
+
+    if (requiredCapacity > availableCapacity) {
+        toast({ variant: 'destructive', title: 'Capacity Exceeded', description: `Not enough capacity on ${targetLine.name} for this period.` });
+        return;
+    }
+
+    setUnits(prevUnits => {
+        const newUnits = [...prevUnits];
+
+        // Remove from source line
+        const sourceUnitIndex = newUnits.findIndex(u => u.lines.some(l => l.id === sourceLineId));
+        if (sourceUnitIndex !== -1) {
+            const sourceLineIndex = newUnits[sourceUnitIndex].lines.findIndex(l => l.id === sourceLineId);
+            newUnits[sourceUnitIndex].lines[sourceLineIndex].assignments = 
+                newUnits[sourceUnitIndex].lines[sourceLineIndex].assignments.filter(a => a.id !== assignment.id);
+        }
+        
+        // Add to target line
+        const targetUnitIndex = newUnits.findIndex(u => u.lines.some(l => l.id === targetLineId));
+        if (targetUnitIndex !== -1) {
+            const targetLineIndex = newUnits[targetUnitIndex].lines.findIndex(l => l.id === targetLineId);
+            const updatedAssignment = {
+                ...assignment,
+                startDate: format(newStartDate, 'yyyy-MM-dd'),
+                endDate: format(newEndDate, 'yyyy-MM-dd'),
+            };
+            newUnits[targetUnitIndex].lines[targetLineIndex].assignments.push(updatedAssignment);
+        }
+
+        return newUnits;
+    });
+
+    toast({ title: 'Assignment Moved', description: `Moved ${assignment.order_num} to ${targetLine.name}.` });
+};
   
   const uniqueFilterValues = useMemo(() => {
     const customers = [...new Set(initialOrders.map(o => o.customer))];
@@ -341,7 +412,7 @@ export default function StitchFlowPage() {
     <ClientOnlyDndProvider
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
-      activeOrder={activeOrder}
+      activeItem={activeItem}
     >
       <div className="flex flex-col bg-background text-foreground font-body">
         <AppHeader
@@ -403,5 +474,3 @@ export default function StitchFlowPage() {
     </ClientOnlyDndProvider>
   );
 }
-
-    

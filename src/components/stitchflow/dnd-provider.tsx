@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -6,22 +7,48 @@ import {
   DragEndEvent,
   DragStartEvent,
   DragOverlay,
+  useDndMonitor,
 } from '@dnd-kit/core';
 import OrderCard from '@/components/stitchflow/order-card';
-import type { Order } from '@/lib/data';
+import type { Order, Assignment } from '@/lib/data';
+import TimelineAssignment from './timeline/timeline-assignment';
 
 type ClientOnlyDndProviderProps = {
   children: React.ReactNode;
   onDragStart: (event: DragStartEvent) => void;
   onDragEnd: (event: DragEndEvent) => void;
-  activeOrder: Order | null;
+  activeItem: Order | Assignment | null;
 };
+
+function DraggableOverlay({ activeItem }: { activeItem: Order | Assignment | null }) {
+    if (!activeItem) return null;
+
+    if ('order_num' in activeItem && 'qty' in activeItem) { // It's an Order
+        return <OrderCard order={activeItem} isDragging />;
+    }
+    
+    if ('startDate' in activeItem) { // It's an Assignment
+        const duration = differenceInDays(new Date(activeItem.endDate), new Date(activeItem.startDate)) + 1;
+        return (
+            <div style={{ width: `${duration * 40}px` }}>
+                <TimelineAssignment
+                    assignment={activeItem}
+                    color="bg-blue-500"
+                    isDragging
+                />
+            </div>
+        );
+    }
+    
+    return null;
+}
+
 
 export function ClientOnlyDndProvider({
   children,
   onDragStart,
   onDragEnd,
-  activeOrder,
+  activeItem,
 }: ClientOnlyDndProviderProps) {
   const [isMounted, setIsMounted] = useState(false);
 
@@ -37,8 +64,14 @@ export function ClientOnlyDndProvider({
     <DndContext onDragStart={onDragStart} onDragEnd={onDragEnd}>
       {children}
       <DragOverlay>
-        {activeOrder ? <OrderCard order={activeOrder} isDragging /> : null}
+        {activeItem ? <DraggableOverlay activeItem={activeItem} /> : null}
       </DragOverlay>
     </DndContext>
   );
+}
+
+
+function differenceInDays(date1: Date, date2: Date): number {
+    const oneDay = 24 * 60 * 60 * 1000;
+    return Math.round(Math.abs((date1.getTime() - date2.getTime()) / oneDay));
 }
