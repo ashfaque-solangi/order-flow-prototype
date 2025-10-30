@@ -15,6 +15,7 @@ import { format } from 'date-fns';
 import { DragEndEvent } from '@dnd-kit/core';
 import type { ProductionLine, Assignment } from '@/lib/data';
 import { ClientOnlyDndProvider } from '@/components/stitchflow/dnd-provider';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 export type Filters = {
   customer: string[];
@@ -369,3 +370,5 @@ export default function StitchFlowPage() {
     </ClientOnlyDndProvider>
   );
 }
+
+    
