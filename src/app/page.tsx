@@ -15,7 +15,6 @@ import { format } from 'date-fns';
 import { DragEndEvent } from '@dnd-kit/core';
 import type { ProductionLine, Assignment } from '@/lib/data';
 import { ClientOnlyDndProvider } from '@/components/stitchflow/dnd-provider';
-import { ScrollArea } from '@/components/ui/scroll-area';
 
 export type Filters = {
   customer: string[];
@@ -329,7 +328,7 @@ export default function StitchFlowPage() {
           selectedMonth={selectedMonth}
           setSelectedMonth={setSelectedMonth}
         />
-        <main className="flex-1 flex flex-col gap-6 p-4 lg:p-6 overflow-hidden">
+        <main className="grid flex-1 grid-rows-3 gap-6 p-4 lg:p-6 overflow-hidden">
           <OrdersSection orders={availableOrders} onAssign={handleOpenAssignModal} />
           <UnitsSection units={units} onUnassign={handleUnassignOrder} />
           <TimelineSection units={units} selectedMonth={selectedMonth} />
@@ -370,5 +369,3 @@ export default function StitchFlowPage() {
     </ClientOnlyDndProvider>
   );
 }
-
-    
