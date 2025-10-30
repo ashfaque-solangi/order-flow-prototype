@@ -3,7 +3,7 @@
 
 import { useMemo } from 'react';
 import { Unit, ProductionLine } from '@/lib/data';
-import { getDaysInMonth, startOfMonth, format, getDate, addDays } from 'date-fns';
+import { getDaysInMonth, startOfMonth, format, addDays } from 'date-fns';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { CalendarDays } from 'lucide-react';
 import TimelineRow from './timeline/timeline-row';
@@ -53,7 +53,7 @@ export default function TimelineSection({ units, selectedMonth, allLines, orderC
             </div>
 
             {/* Body */}
-            {allLines.map((line, index) => (
+            {allLines.map((line) => (
               <TimelineRow 
                 key={line.id} 
                 line={line}

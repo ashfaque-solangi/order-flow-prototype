@@ -3,7 +3,7 @@
 
 import { useMemo } from 'react';
 import { ProductionLine, Assignment } from '@/lib/data';
-import { differenceInDays, parseISO, isWithinInterval, areIntervalsOverlapping } from 'date-fns';
+import { differenceInDays, parseISO, isWithinInterval, areIntervalsOverlapping, startOfDay } from 'date-fns';
 import TimelineCell from './timeline-cell';
 import TimelineAssignment from './timeline-assignment';
 
@@ -25,8 +25,8 @@ function getAssignmentLayout(assignments: Assignment[]): Assignment[][] {
     sortedAssignments.forEach(assignment => {
         let placed = false;
         const assignmentInterval = {
-            start: parseISO(assignment.startDate),
-            end: parseISO(assignment.endDate)
+            start: startOfDay(parseISO(assignment.startDate)),
+            end: startOfDay(parseISO(assignment.endDate))
         };
         
         for (let i = 0; i < tracks.length; i++) {
@@ -34,7 +34,7 @@ function getAssignmentLayout(assignments: Assignment[]): Assignment[][] {
             const hasOverlap = track.some(existing => 
                 areIntervalsOverlapping(
                     assignmentInterval,
-                    { start: parseISO(existing.startDate), end: parseISO(existing.endDate) },
+                    { start: startOfDay(parseISO(existing.startDate)), end: startOfDay(parseISO(existing.endDate)) },
                     { inclusive: true }
                 )
             );
@@ -62,10 +62,11 @@ export default function TimelineRow({ line, days, monthStart, orderColorMap }: T
     days.forEach(day => {
         const dayKey = day.toISOString().split('T')[0];
         usage[dayKey] = 0;
+        const currentDay = startOfDay(day);
         line.assignments.forEach(assignment => {
-            const startDate = parseISO(assignment.startDate);
-            const endDate = parseISO(assignment.endDate);
-            if (isWithinInterval(day, { start: startDate, end: endDate })) {
+            const startDate = startOfDay(parseISO(assignment.startDate));
+            const endDate = startOfDay(parseISO(assignment.endDate));
+            if (isWithinInterval(currentDay, { start: startDate, end: endDate })) {
                 const duration = differenceInDays(endDate, startDate) + 1;
                 usage[dayKey] += assignment.quantity / duration;
             }
@@ -89,15 +90,22 @@ export default function TimelineRow({ line, days, monthStart, orderColorMap }: T
             <p className="text-xs text-muted-foreground">{line.unitName}</p>
         </div>
 
-        {/* Daily Cells */}
-        <div className="col-start-2 col-end-[-1] grid grid-cols-subgrid relative">
+        {/* Daily Cells & Assignments Grid */}
+        <div 
+            className="col-start-2 col-end-[-1] grid relative border-b"
+            style={{
+                gridTemplateColumns: `repeat(${days.length}, minmax(48px, 1fr))`,
+                gridTemplateRows: `repeat(${assignmentTracks.length || 1}, 48px)`,
+            }}
+        >
+            {/* Daily Cells for droppable areas and capacity indicators */}
             {days.map((day, dayIndex) => {
                 const dayKey = day.toISOString().split('T')[0];
                 const totalAssignedQuantity = dailyUsage[dayKey] || 0;
                 const utilization = line.dailyCap > 0 ? totalAssignedQuantity / line.dailyCap : 0;
                 
                 return (
-                     <div key={day.toISOString()} className="relative border-r border-b">
+                     <div key={day.toISOString()} className="relative border-r" style={{gridColumn: dayIndex + 1, gridRow: `1 / -1`}}>
                         <TimelineCell 
                             lineId={line.id}
                             date={day}
@@ -113,20 +121,20 @@ export default function TimelineRow({ line, days, monthStart, orderColorMap }: T
             {assignmentTracks.map((track, trackIndex) => (
                 track.map((assignment) => {
                     try {
-                        const startDate = parseISO(assignment.startDate);
-                        const endDate = parseISO(assignment.endDate);
+                        const startDate = startOfDay(parseISO(assignment.startDate));
+                        const endDate = startOfDay(parseISO(assignment.endDate));
                         
-                        const startDay = differenceInDays(startDate, monthStart);
+                        const startDayIndex = differenceInDays(startDate, monthStart);
                         const duration = differenceInDays(endDate, startDate) + 1;
                         
                         const monthDays = days.length;
                         
-                        if (startDay + duration <= 0 || startDay >= monthDays) {
+                        if (startDayIndex + duration <= 0 || startDayIndex >= monthDays) {
                             return null;
                         }
 
-                        const clampedStart = Math.max(startDay, 0);
-                        const clampedEnd = Math.min(startDay + duration, monthDays);
+                        const clampedStart = Math.max(startDayIndex, 0);
+                        const clampedEnd = Math.min(startDayIndex + duration, monthDays);
                         const clampedDuration = clampedEnd - clampedStart;
 
                         if (clampedDuration <= 0) {
@@ -136,12 +144,11 @@ export default function TimelineRow({ line, days, monthStart, orderColorMap }: T
                         return (
                             <div
                                 key={assignment.id}
-                                className="h-10 self-center z-10 absolute"
+                                className="h-10 self-center z-10"
                                 style={{
-                                    left: `calc(${clampedStart} * (100% / ${monthDays}))`,
-                                    width: `calc(${clampedDuration} * (100% / ${monthDays}))`,
-                                    top: `${trackIndex * 48 + 4}px`, // 48px per track, 4px for padding
-                                    paddingRight: '2px'
+                                    gridColumn: `${clampedStart + 1} / span ${clampedDuration}`,
+                                    gridRow: `${trackIndex + 1}`,
+                                    padding: '4px 2px'
                                 }}
                             >
                                <TimelineAssignment
