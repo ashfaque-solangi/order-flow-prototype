@@ -119,25 +119,21 @@ export default function StitchFlowPage() {
     const order = orders.find((o) => o.id === orderId);
     if (!order) return { success: false, message: 'Order not found' };
     
-    let totalQuantityToAssign = 0;
-    
     // Process all assignments at once
     for (const assignment of assignments) {
         if(assignment.quantity <= 0) continue;
 
-        let targetUnit: Unit | undefined;
         let targetLine: ProductionLine | undefined;
 
         for (const unit of units) {
             const line = unit.lines.find((l) => l.id === assignment.lineId);
             if (line) {
-                targetUnit = unit;
                 targetLine = line;
                 break;
             }
         }
 
-        if (!targetUnit || !targetLine) {
+        if (!targetLine) {
           toast({ variant: 'destructive', title: 'Error', description: `Production line ${assignment.lineId} not found.` });
           continue;
         }
@@ -146,7 +142,7 @@ export default function StitchFlowPage() {
 
         const validationInput = {
           orderId,
-          unitId: targetUnit.id,
+          unitId: targetLine.id.split('-')[1], // a bit hacky way to get unit id
           quantity: assignment.quantity,
           etdDate: order.etd_date,
           dailyCap: targetLine.dailyCap,
@@ -162,7 +158,6 @@ export default function StitchFlowPage() {
                     title: `Capacity Validation Failed for ${targetLine.name}`,
                     description: validationResult.reason,
                 });
-                // Halt the entire assignment process if one fails
                 return { success: false, message: validationResult.reason };
             }
         } catch (error) {
@@ -185,8 +180,6 @@ export default function StitchFlowPage() {
        if(assignment.quantity <= 0) continue;
 
         totalAssignedQuantity += assignment.quantity;
-        let targetUnit: Unit | undefined;
-        let targetLine: ProductionLine | undefined;
         let unitIndex = -1;
         let lineIndex = -1;
 
@@ -344,8 +337,6 @@ export default function StitchFlowPage() {
     return units.find(u => u.id === selectedUnitId) || null;
   }, [selectedUnitId, units]);
   
-  const allLines = useMemo(() => units.flatMap(u => u.lines), [units]);
-
   return (
     <ClientOnlyDndProvider
       onDragStart={handleDragStart}
@@ -406,3 +397,5 @@ export default function StitchFlowPage() {
     </ClientOnlyDndProvider>
   );
 }
+
+    

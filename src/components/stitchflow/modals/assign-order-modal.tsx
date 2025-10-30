@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Order, Unit, ProductionLine } from '@/lib/data';
+import { Order, Unit } from '@/lib/data';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -55,10 +55,12 @@ export default function AssignOrderModal({ isOpen, onClose, order, unit, onAssig
   
   useEffect(() => {
     // Reset state when modal opens
-    setDateRange({ from: new Date(), to: addDays(new Date(), 1) });
-    setAssignments([]);
-    setError(null);
-    setIsSubmitting(false);
+    if (isOpen) {
+      setDateRange({ from: new Date(), to: addDays(new Date(), 1) });
+      setAssignments([]);
+      setError(null);
+      setIsSubmitting(false);
+    }
   }, [isOpen]);
 
   const productionDays = useMemo(() => {
@@ -94,18 +96,26 @@ export default function AssignOrderModal({ isOpen, onClose, order, unit, onAssig
   
   // Auto-calculate quantity when dependencies change
   useEffect(() => {
+    if (!productionDays) return;
+
     setAssignments(prevAssignments => {
-      return prevAssignments.map(assignment => {
+      let remainingQtyForOrder = order.qty.remaining;
+      const updatedAssignments = [...prevAssignments];
+
+      // First pass: calculate potential and update quantities
+      for (let i = 0; i < updatedAssignments.length; i++) {
+        const assignment = updatedAssignments[i];
         const line = unit.lines.find(l => l.id === assignment.lineId);
-        if (line && productionDays > 0) {
+        if (line) {
           const potentialQty = productionDays * line.dailyCap;
-          // You might want a more sophisticated logic for distributing remaining qty
-          return { ...assignment, quantity: potentialQty };
+          const qtyToAssign = Math.min(potentialQty, remainingQtyForOrder);
+          updatedAssignments[i] = { ...assignment, quantity: qtyToAssign };
+          remainingQtyForOrder -= qtyToAssign;
         }
-        return assignment;
-      });
+      }
+      return updatedAssignments;
     });
-  }, [dateRange, unit.lines, productionDays]);
+  }, [dateRange, productionDays, order.qty.remaining, unit.lines]);
 
 
   const totalAssignedQuantity = useMemo(() => {
@@ -154,8 +164,11 @@ export default function AssignOrderModal({ isOpen, onClose, order, unit, onAssig
     onClose();
   };
   
-  const availableLinesForDropdown = unit.lines.filter(l => !assignments.some(a => a.lineId === l.id));
-
+  const getAvailableLinesForDropdown = (currentAssignmentId: string) => {
+    return unit.lines.filter(l => 
+        !assignments.some(a => a.lineId === l.id && a.id !== currentAssignmentId)
+    );
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
@@ -174,7 +187,6 @@ export default function AssignOrderModal({ isOpen, onClose, order, unit, onAssig
               </Alert>
             )}
 
-            {/* Step 1: Date Selection */}
             <div className="space-y-2 p-4 border rounded-lg">
                 <Label className="text-base font-semibold">1. Select Production Dates</Label>
                 <Popover>
@@ -212,7 +224,6 @@ export default function AssignOrderModal({ isOpen, onClose, order, unit, onAssig
                 </Popover>
             </div>
             
-            {/* Step 2: Line Assignments */}
             <div className="space-y-4 p-4 border rounded-lg">
                 <div className="flex justify-between items-center">
                     <Label className="text-base font-semibold">2. Assign to Production Lines</Label>
@@ -220,7 +231,7 @@ export default function AssignOrderModal({ isOpen, onClose, order, unit, onAssig
                         variant="ghost" 
                         size="sm" 
                         onClick={handleAddLine} 
-                        disabled={availableLinesForDropdown.length === 0 || !dateRange?.from}
+                        disabled={assignments.length >= unit.lines.length || !dateRange?.from}
                     >
                         <PlusCircle className="mr-2 h-4 w-4" /> Add Line
                     </Button>
@@ -233,47 +244,46 @@ export default function AssignOrderModal({ isOpen, onClose, order, unit, onAssig
                 )}
                 
                 <div className="space-y-4">
-                  {assignments.map((assignment, index) => {
+                  {assignments.map((assignment) => {
                     const selectedLine = unit.lines.find(l => l.id === assignment.lineId);
-                    const lineCapacity = selectedLine ? selectedLine.dailyCap * 30 : 0;
-                    const assignedCapacity = selectedLine ? selectedLine.assignments.reduce((acc, a) => acc + a.quantity, 0) : 0;
+                    const lineCapacity = selectedLine ? selectedLine.dailyCap * 30 : 0; // Monthly capacity
+                    const currentAssigned = selectedLine ? selectedLine.assignments.reduce((acc, a) => acc + a.quantity, 0) : 0;
 
                     return (
                       <div key={assignment.id} className="grid grid-cols-12 gap-3 items-end p-3 border rounded-md relative">
-                          <div className="col-span-12">
+                          <div className="col-span-12 -mx-3 -mt-3 mb-3">
                                <Separator />
                           </div>
                           <div className="col-span-4 space-y-1.5">
-                            <Label htmlFor={`line-${index}`}>Line</Label>
+                            <Label htmlFor={`line-${assignment.id}`}>Line</Label>
                              <Select 
                                 value={assignment.lineId}
                                 onValueChange={(newLineId) => handleLineChange(assignment.id, newLineId)}
                             >
-                                <SelectTrigger id={`line-${index}`}>
+                                <SelectTrigger id={`line-${assignment.id}`}>
                                     <SelectValue placeholder="Select a line" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {selectedLine && <SelectItem value={selectedLine.id}>{selectedLine.name}</SelectItem>}
-                                    {availableLinesForDropdown.map(line => (
+                                    {getAvailableLinesForDropdown(assignment.id).map(line => (
                                         <SelectItem key={line.id} value={line.id}>{line.name}</SelectItem>
                                     ))}
                                 </SelectContent>
                             </Select>
                           </div>
                           <div className="col-span-3 space-y-1.5">
-                            <Label htmlFor={`quantity-${index}`}>Quantity</Label>
+                            <Label htmlFor={`quantity-${assignment.id}`}>Quantity</Label>
                             <Input
-                              id={`quantity-${index}`}
+                              id={`quantity-${assignment.id}`}
                               type="number"
                               value={assignment.quantity}
                               onChange={e => handleQuantityChange(assignment.id, Number(e.target.value))}
-                              max={order.qty.remaining}
+                              max={order.qty.remaining + (assignments.find(a=>a.id===assignment.id)?.quantity || 0)}
                               placeholder="0"
                             />
                           </div>
                            <div className="col-span-4 space-y-1.5">
                                 <Label>Line Capacity (Monthly)</Label>
-                                {selectedLine && <CapacityBar total={lineCapacity} used={assignedCapacity} />}
+                                {selectedLine && <CapacityBar total={lineCapacity} used={currentAssigned + assignment.quantity} />}
                            </div>
 
                           <div className="col-span-1">
@@ -287,16 +297,19 @@ export default function AssignOrderModal({ isOpen, onClose, order, unit, onAssig
                 </div>
             </div>
 
-            {/* Summary */}
              {assignments.length > 0 && (
                 <div className="p-4 border rounded-lg space-y-2">
                     <h3 className="font-semibold">Summary</h3>
                     <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Production Days:</span>
+                        <span className="font-medium">{productionDays}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Total to Assign:</span>
                         <span className="font-medium">{totalAssignedQuantity.toLocaleString()}</span>
                     </div>
-                    <div className={cn("flex justify-between text-sm", remainingQuantityForOrder < 0 ? "text-destructive" : "text-primary")}>
-                        <span className="text-muted-foreground">Order Qty Remaining:</span>
+                    <div className={cn("flex justify-between text-sm", remainingQuantityForOrder < 0 ? "text-destructive" : "")}>
+                        <span className="text-muted-foreground">Order Qty After Assign:</span>
                         <span className="font-bold">{remainingQuantityForOrder.toLocaleString()}</span>
                     </div>
                 </div>
@@ -315,3 +328,5 @@ export default function AssignOrderModal({ isOpen, onClose, order, unit, onAssig
     </Dialog>
   );
 }
+
+    
