@@ -113,102 +113,137 @@ export default function StitchFlowPage() {
 
   const handleAssignOrder = async (
     orderId: string,
-    lineId: string,
-    quantity: number,
+    assignments: { lineId: string; quantity: number }[],
     dates: { from: Date; to: Date }
   ): Promise<{ success: boolean; message?: string }> => {
     const order = orders.find((o) => o.id === orderId);
     if (!order) return { success: false, message: 'Order not found' };
-
-    let targetUnit: Unit | undefined;
-    let targetLine: ProductionLine | undefined;
-
-    for (const unit of units) {
-      const line = unit.lines.find((l) => l.id === lineId);
-      if (line) {
-        targetUnit = unit;
-        targetLine = line;
-        break;
-      }
-    }
-
-    if (!targetUnit || !targetLine) return { success: false, message: 'Production line not found' };
     
-    const assignedCapacity = targetLine.assignments.reduce((sum, a) => sum + a.quantity, 0);
-
-    const validationInput = {
-      orderId,
-      unitId: targetUnit.id,
-      quantity,
-      etdDate: order.etd_date,
-      dailyCap: targetLine.dailyCap,
-      assignedCapacity,
-    };
+    let totalQuantityToAssign = 0;
     
-    try {
-      const validationResult = await validateCapacity(validationInput);
+    // Process all assignments at once
+    for (const assignment of assignments) {
+        if(assignment.quantity <= 0) continue;
 
-      if (validationResult.isValid) {
-        const newAssignment: Assignment = {
-          id: `as-${Date.now()}`,
+        let targetUnit: Unit | undefined;
+        let targetLine: ProductionLine | undefined;
+
+        for (const unit of units) {
+            const line = unit.lines.find((l) => l.id === assignment.lineId);
+            if (line) {
+                targetUnit = unit;
+                targetLine = line;
+                break;
+            }
+        }
+
+        if (!targetUnit || !targetLine) {
+          toast({ variant: 'destructive', title: 'Error', description: `Production line ${assignment.lineId} not found.` });
+          continue;
+        }
+        
+        const assignedCapacity = targetLine.assignments.reduce((sum, a) => sum + a.quantity, 0);
+
+        const validationInput = {
           orderId,
-          order_num: order.order_num,
-          quantity,
-          startDate: format(dates.from, 'yyyy-MM-dd'),
-          endDate: format(dates.to, 'yyyy-MM-dd'),
+          unitId: targetUnit.id,
+          quantity: assignment.quantity,
+          etdDate: order.etd_date,
+          dailyCap: targetLine.dailyCap,
+          assignedCapacity,
         };
+    
+        try {
+            const validationResult = await validateCapacity(validationInput);
 
-        setUnits(prevUnits =>
-          prevUnits.map(u =>
-            u.id === targetUnit!.id
-              ? {
-                  ...u,
-                  lines: u.lines.map(l =>
-                    l.id === lineId ? { ...l, assignments: [...l.assignments, newAssignment] } : l
-                  ),
-                }
-              : u
-          )
-        );
-
-        setOrders(prevOrders =>
-          prevOrders.map(o =>
-            o.id === orderId
-              ? {
-                  ...o,
-                  qty: {
-                    total: o.qty.total,
-                    assigned: o.qty.assigned + quantity,
-                    remaining: o.qty.remaining - quantity,
-                  },
-                  status: o.qty.remaining - quantity > 0 ? 'Partially Assigned' : 'Fully Assigned',
-                }
-              : o
-          )
-        );
-
-        toast({
-          title: 'Success!',
-          description: `Order ${order.order_num} assigned successfully.`,
-        });
-        return { success: true };
-      } else {
-        toast({
-          variant: 'destructive',
-          title: 'Capacity Validation Failed',
-          description: validationResult.reason,
-        });
-        return { success: false, message: validationResult.reason };
-      }
-    } catch (error) {
-      console.error('AI Validation Error:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'An unexpected error occurred during AI validation.',
-      });
-      return { success: false, message: 'An unexpected error occurred.' };
+            if (!validationResult.isValid) {
+                toast({
+                    variant: 'destructive',
+                    title: `Capacity Validation Failed for ${targetLine.name}`,
+                    description: validationResult.reason,
+                });
+                // Halt the entire assignment process if one fails
+                return { success: false, message: validationResult.reason };
+            }
+        } catch (error) {
+            console.error('AI Validation Error:', error);
+            toast({
+                variant: 'destructive',
+                title: 'Error',
+                description: 'An unexpected error occurred during AI validation.',
+            });
+            return { success: false, message: 'An unexpected error occurred.' };
+        }
     }
+
+
+    // If all validations passed, proceed with state updates
+    let tempUnits = [...units];
+    let totalAssignedQuantity = 0;
+
+    for (const assignment of assignments) {
+       if(assignment.quantity <= 0) continue;
+
+        totalAssignedQuantity += assignment.quantity;
+        let targetUnit: Unit | undefined;
+        let targetLine: ProductionLine | undefined;
+        let unitIndex = -1;
+        let lineIndex = -1;
+
+        for (let i = 0; i < tempUnits.length; i++) {
+            const lineIdx = tempUnits[i].lines.findIndex((l) => l.id === assignment.lineId);
+            if (lineIdx !== -1) {
+                unitIndex = i;
+                lineIndex = lineIdx;
+                break;
+            }
+        }
+
+        if (unitIndex !== -1 && lineIndex !== -1) {
+            const newAssignment: Assignment = {
+                id: `as-${Date.now()}-${Math.random()}`,
+                orderId,
+                order_num: order.order_num,
+                quantity: assignment.quantity,
+                startDate: format(dates.from, 'yyyy-MM-dd'),
+                endDate: format(dates.to, 'yyyy-MM-dd'),
+            };
+
+            const newLines = [...tempUnits[unitIndex].lines];
+            newLines[lineIndex] = {
+                ...newLines[lineIndex],
+                assignments: [...newLines[lineIndex].assignments, newAssignment],
+            };
+            tempUnits[unitIndex] = {
+                ...tempUnits[unitIndex],
+                lines: newLines,
+            };
+        }
+    }
+    
+    setUnits(tempUnits);
+
+    setOrders(prevOrders =>
+      prevOrders.map(o =>
+        o.id === orderId
+          ? {
+              ...o,
+              qty: {
+                total: o.qty.total,
+                assigned: o.qty.assigned + totalAssignedQuantity,
+                remaining: o.qty.remaining - totalAssignedQuantity,
+              },
+              status: o.qty.remaining - totalAssignedQuantity > 0 ? 'Partially Assigned' : 'Fully Assigned',
+            }
+          : o
+      )
+    );
+
+    toast({
+      title: 'Success!',
+      description: `Order ${order.order_num} assigned successfully.`,
+    });
+    return { success: true };
   };
   
   const handleUnassignOrder = (orderId: string, assignmentId: string, lineId: string) => {
@@ -305,6 +340,7 @@ export default function StitchFlowPage() {
   }, [selectedOrderId, orders]);
 
   const selectedUnit = useMemo(() => {
+    if (!selectedUnitId) return null;
     return units.find(u => u.id === selectedUnitId) || null;
   }, [selectedUnitId, units]);
   
@@ -329,13 +365,13 @@ export default function StitchFlowPage() {
           selectedMonth={selectedMonth}
           setSelectedMonth={setSelectedMonth}
         />
-        <main className="flex-1 flex flex-col gap-6 p-4 lg:p-6 overflow-hidden">
+        <main className="flex-1 flex flex-col gap-6 p-4 lg:p-6 overflow-y-auto">
           <OrdersSection orders={availableOrders} />
           <UnitsSection units={units} onUnassign={handleUnassignOrder} />
           <TimelineSection units={units} selectedMonth={selectedMonth} />
         </main>
 
-        {isAssignModalOpen && selectedOrder && (
+        {isAssignModalOpen && selectedOrder && selectedUnit && (
           <AssignOrderModal
             isOpen={isAssignModalOpen}
             onClose={() => {
@@ -344,9 +380,8 @@ export default function StitchFlowPage() {
               setSelectedOrderId(null);
             }}
             order={selectedOrder}
-            units={units}
+            unit={selectedUnit}
             onAssign={handleAssignOrder}
-            preselectedUnitId={selectedUnitId}
           />
         )}
 
