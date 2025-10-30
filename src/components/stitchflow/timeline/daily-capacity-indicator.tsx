@@ -12,8 +12,8 @@ type DailyCapacityIndicatorProps = {
 
 export default function DailyCapacityIndicator({ utilization, assigned, capacity }: DailyCapacityIndicatorProps) {
   const getBackgroundColor = (util: number) => {
-    if (util > 1) return 'bg-red-500/80';
-    if (util > 0.9) return 'bg-red-400/60';
+    if (util > 1) return 'bg-destructive/80';
+    if (util > 0.9) return 'bg-destructive/60';
     if (util > 0.7) return 'bg-yellow-400/60';
     if (util > 0) return 'bg-green-400/50';
     return 'bg-transparent';
