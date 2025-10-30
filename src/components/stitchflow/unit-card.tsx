@@ -8,6 +8,8 @@ import { Badge } from '@/components/ui/badge';
 import CapacityBar from './capacity-bar';
 import { X, Factory, Workflow } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
+import { useDroppable } from '@dnd-kit/core';
+import { cn } from '@/lib/utils';
 
 type UnitCardProps = {
   unit: Unit;
@@ -15,6 +17,14 @@ type UnitCardProps = {
 };
 
 export default function UnitCard({ unit, onUnassign }: UnitCardProps) {
+  const { isOver, setNodeRef } = useDroppable({
+    id: unit.id,
+    data: {
+      type: 'unit',
+      unit,
+    },
+  });
+
   const { totalCapacity, totalAssigned } = useMemo(() => {
     const monthlyMultiplier = 30;
     let totalCapacity = 0;
@@ -33,7 +43,13 @@ export default function UnitCard({ unit, onUnassign }: UnitCardProps) {
   }, [unit]);
 
   return (
-    <Card className="w-[380px] shrink-0 flex flex-col">
+    <Card 
+      ref={setNodeRef}
+      className={cn(
+        "w-[380px] shrink-0 flex flex-col transition-all",
+        isOver && "ring-2 ring-primary ring-offset-2 scale-105"
+      )}
+    >
       <CardHeader>
         <div className="flex items-center justify-between">
             <CardTitle className="text-lg flex items-center gap-2">

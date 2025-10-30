@@ -6,21 +6,44 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { Pin, Tag, Users, Hash, Calendar, CheckCircle, Package } from 'lucide-react';
+import { useDraggable } from '@dnd-kit/core';
+import { cn } from '@/lib/utils';
 
 type OrderCardProps = {
   order: Order;
-  onAssign: (orderId: string) => void;
+  onAssign?: (orderId: string) => void;
+  isDragging?: boolean;
 };
 
-export default function OrderCard({ order, onAssign }: OrderCardProps) {
+export default function OrderCard({ order, onAssign, isDragging }: OrderCardProps) {
+  const { attributes, listeners, setNodeRef, transform, isDragging: dndIsDragging } = useDraggable({
+    id: order.id,
+    data: {
+      type: 'order',
+      order,
+    }
+  });
+
   const isAssignable = order.qty.remaining > 0;
 
+  const style = transform ? {
+    transform: `translate3d(${transform.x}px, ${transform.y}px, 0)`,
+  } : undefined;
+
   return (
-    <Card className="w-[320px] shrink-0 flex flex-col transition-shadow hover:shadow-lg">
-      <CardHeader className="pb-2">
+    <Card 
+      ref={setNodeRef}
+      style={style}
+      className={cn(
+        "w-[320px] shrink-0 flex flex-col transition-shadow hover:shadow-lg",
+        (dndIsDragging || isDragging) && "shadow-2xl z-50 scale-105",
+        !isDragging && "touch-none"
+      )}
+    >
+      <CardHeader className="pb-2" {...listeners} {...attributes}>
         <div className="flex justify-between items-start">
             <div>
-                <CardTitle className="text-lg flex items-center gap-2">
+                <CardTitle className="text-lg flex items-center gap-2 cursor-grab">
                     <Package className="w-5 h-5 text-primary" />
                     {order.order_num}
                 </CardTitle>
@@ -60,8 +83,8 @@ export default function OrderCard({ order, onAssign }: OrderCardProps) {
       <CardFooter>
         <Button 
             className="w-full"
-            onClick={() => onAssign(order.id)}
-            disabled={!isAssignable}
+            onClick={() => onAssign && onAssign(order.id)}
+            disabled={!isAssignable || !onAssign}
         >
           <Pin className="mr-2 h-4 w-4" /> Assign Order
         </Button>

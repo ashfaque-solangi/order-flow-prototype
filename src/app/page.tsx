@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
-import { initialOrders, initialUnits, Order, Unit, Assignment, ProductionLine } from '@/lib/data';
+import { useState, useMemo } from 'react';
+import { initialOrders, initialUnits, Order, Unit } from '@/lib/data';
 import AppHeader from '@/components/stitchflow/header';
 import OrdersSection from '@/components/stitchflow/orders-section';
 import UnitsSection from '@/components/stitchflow/units-section';
@@ -12,6 +12,9 @@ import FiltersModal from '@/components/stitchflow/modals/filters-modal';
 import { useToast } from '@/hooks/use-toast';
 import { validateCapacity } from '@/ai/flows/capacity-validation';
 import { format } from 'date-fns';
+import { DndContext, DragEndEvent, DragOverlay } from '@dnd-kit/core';
+import OrderCard from '@/components/stitchflow/order-card';
+import type { ProductionLine, Assignment } from '@/lib/data';
 
 export type Filters = {
   customer: string[];
@@ -46,6 +49,8 @@ export default function StitchFlowPage() {
   const [isTentativeModalOpen, setTentativeModalOpen] = useState(false);
   const [isFiltersModalOpen, setFiltersModalOpen] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [selectedUnitId, setSelectedUnitId] = useState<string | null>(null);
+  const [activeOrder, setActiveOrder] = useState<Order | null>(null);
 
   const { toast } = useToast();
 
@@ -70,10 +75,11 @@ export default function StitchFlowPage() {
     });
   };
 
-  const handleOpenAssignModal = (orderId: string) => {
+  const handleOpenAssignModal = (orderId: string, unitId?: string) => {
     const order = orders.find((o) => o.id === orderId);
     if (order && order.qty.remaining > 0) {
       setSelectedOrderId(orderId);
+      if (unitId) setSelectedUnitId(unitId);
       setAssignModalOpen(true);
     } else {
        toast({
@@ -83,6 +89,25 @@ export default function StitchFlowPage() {
       });
     }
   };
+  
+  const handleDragStart = (event: DragEndEvent) => {
+    const order = orders.find(o => o.id === event.active.id);
+    if (order) {
+      setActiveOrder(order);
+    }
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    setActiveOrder(null);
+    const { active, over } = event;
+
+    if (over && over.data.current?.type === 'unit') {
+      const orderId = active.id as string;
+      const unitId = over.id as string;
+      handleOpenAssignModal(orderId, unitId);
+    }
+  };
+
 
   const handleAssignOrder = async (
     orderId: string,
@@ -276,54 +301,67 @@ export default function StitchFlowPage() {
   const selectedOrder = useMemo(() => {
     return orders.find(o => o.id === selectedOrderId) || null;
   }, [selectedOrderId, orders]);
+
+  const selectedUnit = useMemo(() => {
+    return units.find(u => u.id === selectedUnitId) || null;
+  }, [selectedUnitId, units]);
   
   const allLines = useMemo(() => units.flatMap(u => u.lines), [units]);
 
   return (
-    <div className="flex flex-col h-screen bg-background text-foreground font-body">
-      <AppHeader
-        onReset={handleReset}
-        onAddTentative={() => setTentativeModalOpen(true)}
-        onOpenFilters={() => setFiltersModalOpen(true)}
-        filters={filters}
-        setFilters={setFilters}
-        uniqueCustomers={uniqueFilterValues.customers}
-        uniqueOCs={uniqueFilterValues.ocs}
-        availableOrdersCount={availableOrders.length}
-      />
-      <main className="flex-1 flex flex-col gap-6 p-4 lg:p-6 overflow-hidden">
-        <OrdersSection orders={availableOrders} onAssign={handleOpenAssignModal} />
-        <UnitsSection units={units} onUnassign={handleUnassignOrder} />
-        <TimelineSection units={units} />
-      </main>
-
-      {isAssignModalOpen && selectedOrder && (
-        <AssignOrderModal
-          isOpen={isAssignModalOpen}
-          onClose={() => setAssignModalOpen(false)}
-          order={selectedOrder}
-          units={units}
-          onAssign={handleAssignOrder}
-        />
-      )}
-
-      {isTentativeModalOpen && (
-        <TentativeOrderModal
-          isOpen={isTentativeModalOpen}
-          onClose={() => setTentativeModalOpen(false)}
-          onAddOrder={handleAddTentativeOrder}
-        />
-      )}
-
-      {isFiltersModalOpen && (
-        <FiltersModal
-          isOpen={isFiltersModalOpen}
-          onClose={() => setFiltersModalOpen(false)}
+    <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+      <div className="flex flex-col h-screen bg-background text-foreground font-body">
+        <AppHeader
+          onReset={handleReset}
+          onAddTentative={() => setTentativeModalOpen(true)}
+          onOpenFilters={() => setFiltersModalOpen(true)}
           filters={filters}
           setFilters={setFilters}
-          uniqueValues={uniqueFilterValues}
+          uniqueCustomers={uniqueFilterValues.customers}
+          uniqueOCs={uniqueFilterValues.ocs}
+          availableOrdersCount={availableOrders.length}
         />
-      )}
-    </div>
+        <main className="flex-1 flex flex-col gap-6 p-4 lg:p-6 overflow-hidden">
+          <OrdersSection orders={availableOrders} onAssign={handleOpenAssignModal} />
+          <UnitsSection units={units} onUnassign={handleUnassignOrder} />
+          <TimelineSection units={units} />
+        </main>
+
+        {isAssignModalOpen && selectedOrder && (
+          <AssignOrderModal
+            isOpen={isAssignModalOpen}
+            onClose={() => {
+              setAssignModalOpen(false);
+              setSelectedUnitId(null);
+            }}
+            order={selectedOrder}
+            units={units}
+            onAssign={handleAssignOrder}
+            preselectedUnitId={selectedUnitId}
+          />
+        )}
+
+        {isTentativeModalOpen && (
+          <TentativeOrderModal
+            isOpen={isTentativeModalOpen}
+            onClose={() => setTentativeModalOpen(false)}
+            onAddOrder={handleAddTentativeOrder}
+          />
+        )}
+
+        {isFiltersModalOpen && (
+          <FiltersModal
+            isOpen={isFiltersModalOpen}
+            onClose={() => setFiltersModalOpen(false)}
+            filters={filters}
+            setFilters={setFilters}
+            uniqueValues={uniqueFilterValues}
+          />
+        )}
+      </div>
+      <DragOverlay>
+        {activeOrder ? <OrderCard order={activeOrder} isDragging /> : null}
+      </DragOverlay>
+    </DndContext>
   );
 }
