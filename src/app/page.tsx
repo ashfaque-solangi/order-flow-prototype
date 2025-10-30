@@ -12,9 +12,9 @@ import FiltersModal from '@/components/stitchflow/modals/filters-modal';
 import { useToast } from '@/hooks/use-toast';
 import { validateCapacity } from '@/ai/flows/capacity-validation';
 import { format } from 'date-fns';
-import { DndContext, DragEndEvent, DragOverlay } from '@dnd-kit/core';
-import OrderCard from '@/components/stitchflow/order-card';
+import { DragEndEvent } from '@dnd-kit/core';
 import type { ProductionLine, Assignment } from '@/lib/data';
+import { ClientOnlyDndProvider } from '@/components/stitchflow/dnd-provider';
 
 export type Filters = {
   customer: string[];
@@ -310,7 +310,11 @@ export default function StitchFlowPage() {
   const allLines = useMemo(() => units.flatMap(u => u.lines), [units]);
 
   return (
-    <DndContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+    <ClientOnlyDndProvider
+      onDragStart={handleDragStart}
+      onDragEnd={handleDragEnd}
+      activeOrder={activeOrder}
+    >
       <div className="flex flex-col h-screen bg-background text-foreground font-body">
         <AppHeader
           onReset={handleReset}
@@ -362,9 +366,6 @@ export default function StitchFlowPage() {
           />
         )}
       </div>
-      <DragOverlay>
-        {activeOrder ? <OrderCard order={activeOrder} isDragging /> : null}
-      </DragOverlay>
-    </DndContext>
+    </ClientOnlyDndProvider>
   );
 }
