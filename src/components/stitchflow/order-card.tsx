@@ -2,21 +2,19 @@
 'use client';
 
 import { Order } from '@/lib/data';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Pin, Tag, Users, Hash, Calendar, CheckCircle, Package } from 'lucide-react';
+import { Tag, Users, Hash, Calendar, CheckCircle, Package } from 'lucide-react';
 import { useDraggable } from '@dnd-kit/core';
 import { cn } from '@/lib/utils';
 
 type OrderCardProps = {
   order: Order;
-  onAssign?: (orderId: string) => void;
   isDragging?: boolean;
 };
 
-export default function OrderCard({ order, onAssign, isDragging }: OrderCardProps) {
+export default function OrderCard({ order, isDragging }: OrderCardProps) {
   const { attributes, listeners, setNodeRef, transform, isDragging: dndIsDragging } = useDraggable({
     id: order.id,
     data: {
@@ -39,10 +37,12 @@ export default function OrderCard({ order, onAssign, isDragging }: OrderCardProp
         "w-[320px] shrink-0 flex flex-col transition-shadow hover:shadow-lg",
         (dndIsDragging || isDragging) && "shadow-2xl z-50 scale-105",
         !isAssignable && "opacity-60 bg-slate-50",
-        !isDragging && "touch-none"
+        isAssignable ? "cursor-grab touch-none" : "cursor-not-allowed"
       )}
+      {...attributes}
+      {...listeners}
     >
-      <CardHeader className="pb-2 cursor-grab" {...listeners} {...attributes}>
+      <CardHeader className="pb-2">
         <div className="flex justify-between items-start">
             <div>
                 <CardTitle className="text-lg flex items-center gap-2">
@@ -57,7 +57,7 @@ export default function OrderCard({ order, onAssign, isDragging }: OrderCardProp
             {order.tentative && <Badge variant="outline" className="border-amber-500 text-amber-600">Tentative</Badge>}
         </div>
       </CardHeader>
-      <CardContent className="flex-1 text-sm">
+      <CardContent className="flex-1 text-sm pt-4 flex flex-col">
         <div className="grid grid-cols-2 gap-y-3 gap-x-2 text-muted-foreground">
             <div className="flex items-center gap-2">
                 <Tag className="w-4 h-4" />
@@ -77,22 +77,11 @@ export default function OrderCard({ order, onAssign, isDragging }: OrderCardProp
             </div>
         </div>
         <Separator className="my-3" />
-        <div className="flex justify-between items-center font-medium">
+        <div className="flex justify-between items-center font-medium mt-auto">
             <span>Remaining Qty:</span>
             <span className="text-primary text-lg">{order.qty.remaining.toLocaleString()}</span>
         </div>
       </CardContent>
-      <CardFooter>
-        <Button 
-            className="w-full"
-            onClick={() => onAssign && onAssign(order.id)}
-            disabled={!isAssignable || !onAssign}
-        >
-          <Pin className="mr-2 h-4 w-4" /> Assign Order
-        </Button>
-      </CardFooter>
     </Card>
   );
 }
-
-    

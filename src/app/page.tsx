@@ -316,7 +316,7 @@ export default function StitchFlowPage() {
       onDragEnd={handleDragEnd}
       activeOrder={activeOrder}
     >
-      <div className="flex flex-col min-h-screen bg-background text-foreground font-body">
+      <div className="flex flex-col h-screen bg-background text-foreground font-body">
         <AppHeader
           onReset={handleReset}
           onAddTentative={() => setTentativeModalOpen(true)}
@@ -329,8 +329,8 @@ export default function StitchFlowPage() {
           selectedMonth={selectedMonth}
           setSelectedMonth={setSelectedMonth}
         />
-        <main className="flex-1 flex flex-col gap-6 p-4 lg:p-6">
-          <OrdersSection orders={availableOrders} onAssign={handleOpenAssignModal} />
+        <main className="flex-1 flex flex-col gap-6 p-4 lg:p-6 overflow-hidden">
+          <OrdersSection orders={availableOrders} />
           <UnitsSection units={units} onUnassign={handleUnassignOrder} />
           <TimelineSection units={units} selectedMonth={selectedMonth} />
         </main>
@@ -371,5 +371,3 @@ export default function StitchFlowPage() {
     </ClientOnlyDndProvider>
   );
 }
-
-    

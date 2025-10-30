@@ -7,10 +7,9 @@ import { FileText } from 'lucide-react';
 
 type OrdersSectionProps = {
   orders: Order[];
-  onAssign: (orderId: string) => void;
 };
 
-export default function OrdersSection({ orders, onAssign }: OrdersSectionProps) {
+export default function OrdersSection({ orders }: OrdersSectionProps) {
   return (
     <div className="flex flex-col">
       <h2 className="text-lg font-semibold mb-2 flex items-center"><FileText className="w-5 h-5 mr-2 text-primary"/> Available Orders</h2>
@@ -18,7 +17,7 @@ export default function OrdersSection({ orders, onAssign }: OrdersSectionProps) 
         <div className="flex w-max space-x-4 pb-4">
           {orders.length > 0 ? (
             orders.map(order => (
-              <OrderCard key={order.id} order={order} onAssign={onAssign} />
+              <OrderCard key={order.id} order={order} />
             ))
           ) : (
             <div className="w-full text-center py-8 text-muted-foreground">
