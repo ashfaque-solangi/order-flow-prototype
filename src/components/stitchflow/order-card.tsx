@@ -31,7 +31,7 @@ export default function OrderCard({ order, isDragging }: OrderCardProps) {
 
   return (
     <Card 
-      ref={setNodeRef}
+      ref={isAssignable ? setNodeRef : null}
       style={style}
       className={cn(
         "w-[320px] shrink-0 flex flex-col transition-shadow hover:shadow-lg",
@@ -39,8 +39,8 @@ export default function OrderCard({ order, isDragging }: OrderCardProps) {
         !isAssignable && "opacity-60 bg-slate-50",
         isAssignable ? "cursor-grab touch-none" : "cursor-not-allowed"
       )}
-      {...attributes}
-      {...listeners}
+      {...(isAssignable ? attributes : {})}
+      {...(isAssignable ? listeners : {})}
     >
       <CardHeader className="pb-2">
         <div className="flex justify-between items-start">

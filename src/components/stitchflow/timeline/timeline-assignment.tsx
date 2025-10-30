@@ -1,23 +1,25 @@
 
 'use client';
 
-import { Assignment } from '@/lib/data';
+import { Assignment, ProductionLine } from '@/lib/data';
 import { useDraggable } from '@dnd-kit/core';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
 type TimelineAssignmentProps = {
   assignment: Assignment;
+  lineId: string;
   color: string;
   isDragging?: boolean;
 };
 
-export default function TimelineAssignment({ assignment, color, isDragging = false }: TimelineAssignmentProps) {
+export default function TimelineAssignment({ assignment, lineId, color, isDragging = false }: TimelineAssignmentProps) {
     const { attributes, listeners, setNodeRef, transform, isDragging: dndIsDragging } = useDraggable({
         id: `assignment-${assignment.id}`,
         data: {
             type: 'assignment',
             assignment: assignment,
+            lineId: lineId,
         },
     });
 

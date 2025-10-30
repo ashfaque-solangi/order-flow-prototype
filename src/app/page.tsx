@@ -12,10 +12,13 @@ import TentativeOrderModal from '@/components/stitchflow/modals/tentative-order-
 import FiltersModal from '@/components/stitchflow/modals/filters-modal';
 import { useToast } from '@/hooks/use-toast';
 import { validateCapacity } from '@/ai/flows/capacity-validation';
-import { format, differenceInDays } from 'date-fns';
-import { DragEndEvent, DragStartEvent } from '@dnd-kit/core';
+import { format, differenceInDays, isWithinInterval, startOfDay, parseISO } from 'date-fns';
+import { DragEndEvent, DragStartEvent, DragOverlay } from '@dnd-kit/core';
 import type { ProductionLine, Assignment } from '@/lib/data';
 import { ClientOnlyDndProvider } from '@/components/stitchflow/dnd-provider';
+import OrderCard from '@/components/stitchflow/order-card';
+import TimelineAssignment from '@/components/stitchflow/timeline/timeline-assignment';
+
 
 export type Filters = {
   customer: string[];
@@ -95,11 +98,12 @@ export default function StitchFlowPage() {
   
   const handleDragStart = (event: DragStartEvent) => {
     const { active } = event;
-    if (active.data.current?.type === 'order') {
+    const activeData = active.data.current;
+    if (activeData?.type === 'order') {
         const order = orders.find(o => o.id === active.id);
         if (order) setActiveItem(order);
-    } else if (active.data.current?.type === 'assignment') {
-        const assignment = active.data.current.assignment as Assignment;
+    } else if (activeData?.type === 'assignment') {
+        const assignment = activeData.assignment as Assignment;
         if(assignment) setActiveItem(assignment);
     }
   };
@@ -107,24 +111,27 @@ export default function StitchFlowPage() {
   const handleDragEnd = (event: DragEndEvent) => {
     setActiveItem(null);
     const { active, over } = event;
-
-    if (!active.id || !over) return;
-
+  
+    if (!active.id || !over?.id) return;
+  
+    const activeData = active.data.current;
+    const overData = over.data.current;
+  
     // Dragging an OrderCard to a UnitCard
-    if (active.data.current?.type === 'order' && over.data.current?.type === 'unit') {
+    if (activeData?.type === 'order' && overData?.type === 'unit') {
       const orderId = active.id as string;
       const unitId = over.id as string;
       handleOpenAssignModal(orderId, unitId);
     }
-
+  
     // Dragging an assignment within the timeline
-    if (active.data.current?.type === 'assignment' && over.data.current?.type === 'timeline-cell') {
-        const assignment = active.data.current.assignment as Assignment;
-        const sourceLineId = active.data.current.lineId as string;
-        const targetLineId = over.data.current.lineId as string;
-        const newStartDate = over.data.current.date as Date;
-        
-        handleMoveAssignment(assignment, sourceLineId, targetLineId, newStartDate);
+    if (activeData?.type === 'assignment' && overData?.type === 'timeline-cell') {
+      const assignment = activeData.assignment as Assignment;
+      const sourceLineId = activeData.lineId as string;
+      const targetLineId = overData.lineId as string;
+      const newStartDate = overData.date as Date;
+  
+      handleMoveAssignment(assignment, sourceLineId, targetLineId, newStartDate);
     }
   };
 
@@ -136,35 +143,39 @@ export default function StitchFlowPage() {
   ): Promise<{ success: boolean; message?: string }> => {
     const order = orders.find((o) => o.id === orderId);
     if (!order) return { success: false, message: 'Order not found' };
+
+    const productionDays = differenceInDays(dates.to, dates.from) + 1;
     
     // Process all assignments at once
     for (const assignment of assignments) {
         if(assignment.quantity <= 0) continue;
 
         let targetLine: ProductionLine | undefined;
+        let unitId: string | undefined;
 
         for (const unit of units) {
             const line = unit.lines.find((l) => l.id === assignment.lineId);
             if (line) {
                 targetLine = line;
+                unitId = unit.id;
                 break;
             }
         }
 
-        if (!targetLine) {
+        if (!targetLine || !unitId) {
           toast({ variant: 'destructive', title: 'Error', description: `Production line ${assignment.lineId} not found.` });
           continue;
         }
         
-        const assignedCapacity = targetLine.assignments.reduce((sum, a) => sum + a.quantity, 0);
+        const existingAssignmentsOnLine = targetLine.assignments.reduce((sum, a) => sum + a.quantity, 0);
 
         const validationInput = {
           orderId,
-          unitId: targetLine.id.split('-')[1], // a bit hacky way to get unit id
+          unitId: unitId,
           quantity: assignment.quantity,
           etdDate: order.etd_date,
-          dailyCap: targetLine.dailyCap,
-          assignedCapacity,
+          dailyCap: targetLine.dailyCap * productionDays, // Use total capacity for the period
+          assignedCapacity: existingAssignmentsOnLine,
         };
     
         try {
@@ -326,36 +337,60 @@ export default function StitchFlowPage() {
         toast({ variant: 'destructive', title: 'Error', description: 'Could not find source or target line.' });
         return;
     }
-
-    const duration = differenceInDays(new Date(assignment.endDate), new Date(assignment.startDate));
+    
+    const duration = differenceInDays(parseISO(assignment.endDate), parseISO(assignment.startDate));
     const newEndDate = new Date(newStartDate);
     newEndDate.setDate(newEndDate.getDate() + duration);
 
-    // Basic capacity check
-    const requiredDays = duration + 1;
-    const requiredCapacity = assignment.quantity;
-    const availableCapacity = targetLine.dailyCap * requiredDays;
+    // Capacity check on target line for the new date range
+    const totalCapacityOnTarget = targetLine.dailyCap * (duration + 1);
+    const assignedOnTargetDuringDrop = targetLine.assignments.reduce((sum, a) => {
+        const aStart = parseISO(a.startDate);
+        const aEnd = parseISO(a.endDate);
+        if(isWithinInterval(newStartDate, {start: aStart, end: aEnd}) || isWithinInterval(newEndDate, {start: aStart, end: aEnd})) {
+            return sum + a.quantity;
+        }
+        return sum;
+    }, 0);
+    
+    const availableCapacity = totalCapacityOnTarget - assignedOnTargetDuringDrop;
 
-    if (requiredCapacity > availableCapacity) {
-        toast({ variant: 'destructive', title: 'Capacity Exceeded', description: `Not enough capacity on ${targetLine.name} for this period.` });
+    if (assignment.quantity > availableCapacity) {
+        toast({ variant: 'destructive', title: 'Capacity Exceeded', description: `Not enough capacity on ${targetLine.name}. Required: ${assignment.quantity.toLocaleString()}, Available: ${Math.round(availableCapacity).toLocaleString()}` });
         return;
     }
-
+    
     setUnits(prevUnits => {
         const newUnits = [...prevUnits];
 
-        // Remove from source line
-        const sourceUnitIndex = newUnits.findIndex(u => u.lines.some(l => l.id === sourceLineId));
-        if (sourceUnitIndex !== -1) {
-            const sourceLineIndex = newUnits[sourceUnitIndex].lines.findIndex(l => l.id === sourceLineId);
+        // Find and remove from source line
+        let sourceUnitIndex = -1;
+        let sourceLineIndex = -1;
+        for (let i=0; i<newUnits.length; i++) {
+            const lineIdx = newUnits[i].lines.findIndex(l => l.id === sourceLineId);
+            if (lineIdx !== -1) {
+                sourceUnitIndex = i;
+                sourceLineIndex = lineIdx;
+                break;
+            }
+        }
+        if (sourceUnitIndex !== -1 && sourceLineIndex !== -1) {
             newUnits[sourceUnitIndex].lines[sourceLineIndex].assignments = 
                 newUnits[sourceUnitIndex].lines[sourceLineIndex].assignments.filter(a => a.id !== assignment.id);
         }
         
-        // Add to target line
-        const targetUnitIndex = newUnits.findIndex(u => u.lines.some(l => l.id === targetLineId));
-        if (targetUnitIndex !== -1) {
-            const targetLineIndex = newUnits[targetUnitIndex].lines.findIndex(l => l.id === targetLineId);
+        // Find and add to target line
+        let targetUnitIndex = -1;
+        let targetLineIndex = -1;
+        for (let i=0; i<newUnits.length; i++) {
+            const lineIdx = newUnits[i].lines.findIndex(l => l.id === targetLineId);
+            if (lineIdx !== -1) {
+                targetUnitIndex = i;
+                targetLineIndex = lineIdx;
+                break;
+            }
+        }
+        if (targetUnitIndex !== -1 && targetLineIndex !== -1) {
             const updatedAssignment = {
                 ...assignment,
                 startDate: format(newStartDate, 'yyyy-MM-dd'),
@@ -412,7 +447,6 @@ export default function StitchFlowPage() {
     <ClientOnlyDndProvider
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
-      activeItem={activeItem}
     >
       <div className="flex flex-col bg-background text-foreground font-body">
         <AppHeader
@@ -471,6 +505,25 @@ export default function StitchFlowPage() {
           />
         )}
       </div>
+       <DragOverlay>
+        {activeItem ? (
+          'qty' in activeItem ? (
+            <OrderCard order={activeItem} isDragging />
+          ) : (
+             <div style={{
+                width: `${(differenceInDays(parseISO(activeItem.endDate), parseISO(activeItem.startDate)) + 1) * 40}px`
+            }}>
+                <TimelineAssignment
+                    assignment={activeItem}
+                    color="bg-blue-500"
+                    isDragging
+                />
+            </div>
+          )
+        ) : null}
+      </DragOverlay>
     </ClientOnlyDndProvider>
   );
 }
+
+    

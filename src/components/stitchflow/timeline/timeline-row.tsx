@@ -28,20 +28,21 @@ export default function TimelineRow({ line, days, monthStart }: TimelineRowProps
     }, {} as Record<string, string>);
   }, [line.assignments]);
 
-  const dailyAssignments = useMemo(() => {
-    const assignmentsByDay: Record<string, Assignment[]> = {};
-    eachDayOfInterval({ start: days[0], end: days[days.length - 1] }).forEach(day => {
+  const dailyUsage = useMemo(() => {
+    const usage: Record<string, number> = {};
+    days.forEach(day => {
         const dayKey = day.toISOString().split('T')[0];
-        assignmentsByDay[dayKey] = [];
+        usage[dayKey] = 0;
         line.assignments.forEach(assignment => {
             const startDate = startOfDay(parseISO(assignment.startDate));
             const endDate = startOfDay(parseISO(assignment.endDate));
             if (isWithinInterval(day, { start: startDate, end: endDate })) {
-                assignmentsByDay[dayKey].push(assignment);
+                const duration = differenceInDays(endDate, startDate) + 1;
+                usage[dayKey] += assignment.quantity / duration;
             }
         });
     });
-    return assignmentsByDay;
+    return usage;
   }, [line.assignments, days]);
 
 
@@ -56,8 +57,7 @@ export default function TimelineRow({ line, days, monthStart }: TimelineRowProps
         {/* Daily Cells */}
         {days.map((day, dayIndex) => {
             const dayKey = day.toISOString().split('T')[0];
-            const assignedToday = dailyAssignments[dayKey] || [];
-            const totalAssignedQuantity = assignedToday.reduce((sum, a) => sum + (a.quantity / (differenceInDays(parseISO(a.endDate), parseISO(a.startDate)) + 1)), 0);
+            const totalAssignedQuantity = dailyUsage[dayKey] || 0;
             const utilization = line.dailyCap > 0 ? totalAssignedQuantity / line.dailyCap : 0;
             
             return (
@@ -99,6 +99,7 @@ export default function TimelineRow({ line, days, monthStart }: TimelineRowProps
                         >
                            <TimelineAssignment
                                 assignment={assignment}
+                                lineId={line.id}
                                 color={orderColorMap[assignment.orderId] || 'bg-gray-500'}
                             />
                         </div>
