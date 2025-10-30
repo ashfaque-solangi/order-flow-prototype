@@ -137,7 +137,7 @@ export default function StitchFlowPage() {
     // Dragging an assignment within the timeline
     if (activeData?.type === 'assignment' && overData?.type === 'timeline-cell') {
       const assignment = activeData.assignment as Assignment;
-      const sourceLineId = activeData.lineId as string;
+      const sourceLineId = active.data.current?.lineId as string;
       const targetLineId = overData.lineId as string;
       const newStartDate = overData.date as Date;
   
