@@ -103,7 +103,7 @@ export default function StitchFlowPage() {
     setActiveOrder(null);
     const { active, over } = event;
 
-    if (over && over.data.current?.type === 'unit') {
+    if (active.id && over && over.data.current?.type === 'unit') {
       const orderId = active.id as string;
       const unitId = over.id as string;
       handleOpenAssignModal(orderId, unitId);
@@ -343,7 +343,7 @@ export default function StitchFlowPage() {
       onDragEnd={handleDragEnd}
       activeOrder={activeOrder}
     >
-      <div className="flex flex-col h-screen bg-background text-foreground font-body">
+      <div className="flex flex-col bg-background text-foreground font-body">
         <AppHeader
           onReset={handleReset}
           onAddTentative={() => setTentativeModalOpen(true)}
@@ -356,14 +356,14 @@ export default function StitchFlowPage() {
           selectedMonth={selectedMonth}
           setSelectedMonth={setSelectedMonth}
         />
-        <main className="flex-1 flex flex-col gap-6 p-4 lg:p-6 overflow-hidden">
+        <main className="flex flex-col gap-6 p-4 lg:p-6">
           <div className="flex-shrink-0">
             <OrdersSection orders={availableOrders} />
           </div>
           <div className="flex-shrink-0">
             <UnitsSection units={units} onUnassign={handleUnassignOrder} />
           </div>
-          <div className="flex-1 min-h-0">
+          <div className="flex-shrink-0">
             <TimelineSection units={units} selectedMonth={selectedMonth} />
           </div>
         </main>
@@ -403,3 +403,5 @@ export default function StitchFlowPage() {
     </ClientOnlyDndProvider>
   );
 }
+
+    
