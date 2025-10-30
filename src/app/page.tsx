@@ -32,6 +32,7 @@ export type Filters = {
 export default function StitchFlowPage() {
   const [orders, setOrders] = useState<Order[]>(initialOrders);
   const [units, setUnits] = useState<Unit[]>(initialUnits);
+  const [selectedMonth, setSelectedMonth] = useState(new Date());
   const [filters, setFilters] = useState<Filters>({
     customer: [],
     oc: [],
@@ -320,11 +321,13 @@ export default function StitchFlowPage() {
           uniqueCustomers={uniqueFilterValues.customers}
           uniqueOCs={uniqueFilterValues.ocs}
           availableOrdersCount={availableOrders.length}
+          selectedMonth={selectedMonth}
+          setSelectedMonth={setSelectedMonth}
         />
         <main className="flex-1 flex flex-col gap-6 p-4 lg:p-6 overflow-hidden">
           <OrdersSection orders={availableOrders} onAssign={handleOpenAssignModal} />
           <UnitsSection units={units} onUnassign={handleUnassignOrder} />
-          <TimelineSection units={units} />
+          <TimelineSection units={units} selectedMonth={selectedMonth} />
         </main>
 
         {isAssignModalOpen && selectedOrder && (

@@ -2,7 +2,7 @@
 
 import { useMemo } from 'react';
 import { Unit } from '@/lib/data';
-import { getDaysInMonth, startOfMonth, format, differenceInDays, parseISO } from 'date-fns';
+import { getDaysInMonth, startOfMonth, format, differenceInDays, parseISO, getDate } from 'date-fns';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { CalendarDays } from 'lucide-react';
@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 
 type TimelineSectionProps = {
   units: Unit[];
+  selectedMonth: Date;
 };
 
 const ORDER_COLORS = [
@@ -17,18 +18,17 @@ const ORDER_COLORS = [
   'bg-pink-500', 'bg-indigo-500', 'bg-teal-500', 'bg-orange-500'
 ];
 
-export default function TimelineSection({ units }: TimelineSectionProps) {
+export default function TimelineSection({ units, selectedMonth }: TimelineSectionProps) {
   const { days, monthStart } = useMemo(() => {
-    const now = new Date();
-    const monthStart = startOfMonth(now);
-    const numDays = getDaysInMonth(now);
+    const monthStart = startOfMonth(selectedMonth);
+    const numDays = getDaysInMonth(selectedMonth);
     const days = Array.from({ length: numDays }, (_, i) => i + 1);
     return { days, monthStart };
-  }, []);
+  }, [selectedMonth]);
 
   const allLines = useMemo(() => units.flatMap(unit => 
     unit.lines.map(line => ({ ...line, unitName: unit.name }))
-  ), [units]);
+  ).sort((a,b) => a.name.localeCompare(b.name)), [units]);
   
   const orderColorMap = useMemo(() => {
     const orderIds = new Set(allLines.flatMap(line => line.assignments.map(a => a.orderId)));
@@ -37,6 +37,15 @@ export default function TimelineSection({ units }: TimelineSectionProps) {
       return acc;
     }, {} as Record<string, string>);
   }, [allLines]);
+  
+  const isToday = (day: number) => {
+    const today = new Date();
+    return (
+      day === getDate(today) &&
+      selectedMonth.getMonth() === today.getMonth() &&
+      selectedMonth.getFullYear() === today.getFullYear()
+    );
+  }
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
@@ -50,7 +59,7 @@ export default function TimelineSection({ units }: TimelineSectionProps) {
               <div key={day} className="sticky top-0 z-10 bg-card text-center font-semibold text-sm">
                 <span className={cn(
                   "flex items-center justify-center w-8 h-8 rounded-full mx-auto",
-                  day === new Date().getDate() && "bg-primary text-primary-foreground"
+                  isToday(day) && "bg-primary text-primary-foreground"
                 )}>{day}</span>
               </div>
             ))}
@@ -71,16 +80,22 @@ export default function TimelineSection({ units }: TimelineSectionProps) {
                   try {
                     const startDate = parseISO(assignment.startDate);
                     const endDate = parseISO(assignment.endDate);
-                    const startDay = differenceInDays(startDate, monthStart) + 1;
-                    const duration = differenceInDays(endDate, startDate) + 1;
                     
-                    if (startDay > 0 && startDay <= days.length) {
+                    const startDay = differenceInDays(startDate, monthStart) + 1;
+                    const endDay = differenceInDays(endDate, monthStart) + 1;
+                    
+                    // Clamp duration to the visible month
+                    const clampedStartDay = Math.max(1, startDay);
+                    const clampedEndDay = Math.min(days.length, endDay);
+                    const duration = clampedEndDay - clampedStartDay + 1;
+                    
+                    if (duration > 0 && clampedStartDay <= days.length) {
                        return (
                         <div
                           key={assignment.id}
                           className="h-10 row-start-[--row-start] self-center"
                           style={{
-                            gridColumn: `${startDay + 1} / span ${duration}`,
+                            gridColumn: `${clampedStartDay + 1} / span ${duration}`,
                             '--row-start': lineIndex + 2,
                           } as React.CSSProperties}
                         >

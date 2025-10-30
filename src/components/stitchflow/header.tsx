@@ -6,7 +6,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Calendar as CalendarIcon, Filter, RotateCcw, PlusCircle, ChevronsRight } from 'lucide-react';
+import { Calendar as CalendarIcon, Filter, RotateCcw, PlusCircle, ChevronsRight, CalendarClock, Undo2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import type { Filters } from '@/app/page';
@@ -20,6 +20,8 @@ type AppHeaderProps = {
   uniqueCustomers: string[];
   uniqueOCs: string[];
   availableOrdersCount: number;
+  selectedMonth: Date;
+  setSelectedMonth: (date: Date) => void;
 };
 
 export default function AppHeader({
@@ -31,10 +33,14 @@ export default function AppHeader({
   uniqueCustomers,
   uniqueOCs,
   availableOrdersCount,
+  selectedMonth,
+  setSelectedMonth,
 }: AppHeaderProps) {
   const handleFilterChange = <K extends keyof Filters>(key: K, value: Filters[K]) => {
     setFilters({ ...filters, [key]: value });
   };
+  
+  const isCurrentMonth = format(selectedMonth, 'yyyy-MM') === format(new Date(), 'yyyy-MM');
 
   return (
     <header className="bg-card border-b shadow-sm p-3 sticky top-0 z-10">
@@ -102,6 +108,41 @@ export default function AppHeader({
 
             <Button variant="outline" size="sm" className="h-9" onClick={onOpenFilters}>
               <Filter className="h-4 w-4 mr-2" /> More Filters
+            </Button>
+          </div>
+
+          <Separator orientation="vertical" className="h-6 mx-2" />
+          
+          <div className="flex items-center gap-2">
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" size="sm" className="h-9 w-[160px] justify-start">
+                  <CalendarClock className="h-4 w-4 mr-2" />
+                  {format(selectedMonth, 'MMMM yyyy')}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="end">
+                <Calendar
+                  mode="single"
+                  selected={selectedMonth}
+                  onSelect={(date) => date && setSelectedMonth(date)}
+                  initialFocus
+                  captionLayout="dropdown-buttons"
+                  fromYear={2023}
+                  toYear={2028}
+                  
+                />
+              </PopoverContent>
+            </Popover>
+            <Button
+              variant="secondary"
+              size="sm"
+              className="h-9"
+              onClick={() => setSelectedMonth(new Date())}
+              disabled={isCurrentMonth}
+            >
+              <Undo2 className="h-4 w-4 mr-2"/>
+              Today
             </Button>
           </div>
 
