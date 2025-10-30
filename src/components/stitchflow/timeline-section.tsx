@@ -2,7 +2,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Unit } from '@/lib/data';
+import { Unit, ProductionLine } from '@/lib/data';
 import { getDaysInMonth, startOfMonth, format, getDate, addDays, eachDayOfInterval } from 'date-fns';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { CalendarDays } from 'lucide-react';
@@ -11,9 +11,11 @@ import TimelineRow from './timeline/timeline-row';
 type TimelineSectionProps = {
   units: Unit[];
   selectedMonth: Date;
+  allLines: (ProductionLine & { unitName: string })[];
+  orderColorMap: Record<string, string>;
 };
 
-export default function TimelineSection({ units, selectedMonth }: TimelineSectionProps) {
+export default function TimelineSection({ units, selectedMonth, allLines, orderColorMap }: TimelineSectionProps) {
   const { days, monthStart } = useMemo(() => {
     const monthStart = startOfMonth(selectedMonth);
     const numDays = getDaysInMonth(selectedMonth);
@@ -21,10 +23,6 @@ export default function TimelineSection({ units, selectedMonth }: TimelineSectio
     return { days, monthStart };
   }, [selectedMonth]);
 
-  const allLines = useMemo(() => units.flatMap(unit => 
-    unit.lines.map(line => ({ ...line, unitName: unit.name }))
-  ).sort((a,b) => a.name.localeCompare(b.name)), [units]);
-  
   const isToday = (day: Date) => {
     const today = new Date();
     return (
@@ -58,6 +56,7 @@ export default function TimelineSection({ units, selectedMonth }: TimelineSectio
                 line={line} 
                 days={days} 
                 monthStart={monthStart}
+                orderColorMap={orderColorMap}
               />
             ))}
           </div>

@@ -36,7 +36,8 @@ type AssignOrderModalProps = {
   isOpen: boolean;
   onClose: () => void;
   order: Order;
-  unit: Unit;
+  unit: Unit | null; // Can be null if dragged to timeline
+  units: Unit[]; // All units
   onAssign: (
     orderId: string,
     assignments: { lineId: string; quantity: number }[],
@@ -44,7 +45,7 @@ type AssignOrderModalProps = {
   ) => Promise<{ success: boolean; message?: string }>;
 };
 
-export default function AssignOrderModal({ isOpen, onClose, order, unit, onAssign }: AssignOrderModalProps) {
+export default function AssignOrderModal({ isOpen, onClose, order, unit, units, onAssign }: AssignOrderModalProps) {
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: new Date(),
     to: addDays(new Date(), 1),
@@ -52,6 +53,8 @@ export default function AssignOrderModal({ isOpen, onClose, order, unit, onAssig
   const [assignments, setAssignments] = useState<AssignmentRow[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const targetUnit = unit;
   
   useEffect(() => {
     // Reset state when modal opens
@@ -73,30 +76,33 @@ export default function AssignOrderModal({ isOpen, onClose, order, unit, onAssig
     return assignments.reduce((sum, a) => sum + Number(a.quantity || 0), 0);
   }, [assignments]);
 
+  const allLines = useMemo(() => units.flatMap(u => u.lines), [units]);
+
   // Auto-calculate quantity when dependencies change
   useEffect(() => {
     if (productionDays <= 0 || assignments.length === 0) return;
 
     let totalAllocated = 0;
     const updatedAssignments = assignments.map(assignment => {
-      const line = unit.lines.find(l => l.id === assignment.lineId);
+      const line = allLines.find(l => l.id === assignment.lineId);
       if (!line) return assignment;
 
       const remainingOrderQty = order.qty.remaining - totalAllocated;
       const potentialQtyForLine = line.dailyCap * productionDays;
-      const qtyToAssign = Math.min(potentialQtyForLine, remainingOrderQty);
+      const qtyToAssign = Math.min(potentialQtyForLine, remainingOrderQty, order.qty.remaining);
       
       totalAllocated += qtyToAssign;
 
-      return { ...assignment, quantity: qtyToAssign };
+      return { ...assignment, quantity: Math.max(0, qtyToAssign) };
     });
 
     setAssignments(updatedAssignments);
 
-  }, [dateRange, unit.lines, order.qty.remaining]); // Reruns when date or unit changes, but not assignments to avoid loops
+  }, [dateRange, targetUnit, order.qty.remaining, allLines, productionDays]);
 
   const handleAddLine = () => {
-    const availableLines = unit.lines.filter(l => !assignments.some(a => a.lineId === l.id));
+    const linesInUnit = targetUnit?.lines || [];
+    const availableLines = linesInUnit.filter(l => !assignments.some(a => a.lineId === l.id));
     if (availableLines.length > 0) {
       const firstAvailableLine = availableLines[0];
       
@@ -104,12 +110,12 @@ export default function AssignOrderModal({ isOpen, onClose, order, unit, onAssig
       const potentialQty = (productionDays > 0 && firstAvailableLine.dailyCap > 0) 
         ? firstAvailableLine.dailyCap * productionDays
         : 0;
-      const initialQty = Math.min(potentialQty, remainingOrderQty);
+      const initialQty = Math.min(potentialQty, remainingOrderQty, order.qty.remaining);
 
       const newAssignment: AssignmentRow = {
         id: `temp-${Date.now()}`,
         lineId: firstAvailableLine.id,
-        quantity: initialQty
+        quantity: Math.max(0, initialQty)
       };
       setAssignments(prev => [...prev, newAssignment]);
     }
@@ -125,16 +131,16 @@ export default function AssignOrderModal({ isOpen, onClose, order, unit, onAssig
         const tempAssignments = prev.map(a => a.id === tempId ? { ...a, lineId: newLineId } : a);
 
         return tempAssignments.map(assignment => {
-            const line = unit.lines.find(l => l.id === assignment.lineId);
+            const line = allLines.find(l => l.id === assignment.lineId);
             if (!line) return assignment;
 
             const remainingOrderQty = order.qty.remaining - totalAllocated;
             const potentialQtyForLine = line.dailyCap * productionDays;
-            const qtyToAssign = Math.min(potentialQtyForLine, remainingOrderQty);
+            const qtyToAssign = Math.min(potentialQtyForLine, remainingOrderQty, order.qty.remaining);
             
             totalAllocated += qtyToAssign;
 
-            return { ...assignment, quantity: qtyToAssign };
+            return { ...assignment, quantity: Math.max(0, qtyToAssign) };
         });
     });
   };
@@ -186,7 +192,8 @@ export default function AssignOrderModal({ isOpen, onClose, order, unit, onAssig
   };
   
   const getAvailableLinesForDropdown = (currentAssignmentId: string) => {
-    return unit.lines.filter(l => 
+    const linesInUnit = targetUnit?.lines || [];
+    return linesInUnit.filter(l => 
         !assignments.some(a => a.lineId === l.id && a.id !== currentAssignmentId)
     );
   }
@@ -195,7 +202,7 @@ export default function AssignOrderModal({ isOpen, onClose, order, unit, onAssig
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Assign Order: {order.order_num} to {unit.name}</DialogTitle>
+          <DialogTitle>Assign Order: {order.order_num} to {targetUnit?.name}</DialogTitle>
           <DialogDescription>Select dates and add production lines to assign quantities. Remaining Qty: {order.qty.remaining.toLocaleString()}</DialogDescription>
         </DialogHeader>
         <ScrollArea className="max-h-[70vh]">
@@ -252,7 +259,7 @@ export default function AssignOrderModal({ isOpen, onClose, order, unit, onAssig
                         variant="ghost" 
                         size="sm" 
                         onClick={handleAddLine} 
-                        disabled={assignments.length >= unit.lines.length || !dateRange?.from}
+                        disabled={!targetUnit || assignments.length >= targetUnit.lines.length || !dateRange?.from}
                     >
                         <PlusCircle className="mr-2 h-4 w-4" /> Add Line
                     </Button>
@@ -266,7 +273,7 @@ export default function AssignOrderModal({ isOpen, onClose, order, unit, onAssig
                 
                 <div className="space-y-4">
                   {assignments.map((assignment) => {
-                    const selectedLine = unit.lines.find(l => l.id === assignment.lineId);
+                    const selectedLine = allLines.find(l => l.id === assignment.lineId);
                     const lineCapacity = selectedLine ? selectedLine.dailyCap * 30 : 0; // Monthly capacity
                     const currentAssigned = selectedLine ? selectedLine.assignments.reduce((acc, a) => acc + a.quantity, 0) : 0;
 
@@ -286,7 +293,7 @@ export default function AssignOrderModal({ isOpen, onClose, order, unit, onAssig
                                     <SelectValue placeholder="Select a line" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    {getAvailableLinesForDropdown(assignment.id).map(line => (
+                                    {targetUnit && getAvailableLinesForDropdown(assignment.id).map(line => (
                                         <SelectItem key={line.id} value={line.id}>{line.name}</SelectItem>
                                     ))}
                                 </SelectContent>

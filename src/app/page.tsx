@@ -348,10 +348,11 @@ export default function StitchFlowPage() {
         const aStart = parseISO(a.startDate);
         const aEnd = parseISO(a.endDate);
         if(isWithinInterval(newStartDate, {start: aStart, end: aEnd}) || isWithinInterval(newEndDate, {start: aStart, end: aEnd})) {
-            return sum + a.quantity;
+            const assignmentDuration = differenceInDays(aEnd, aStart) + 1;
+            return sum + (a.quantity / assignmentDuration);
         }
         return sum;
-    }, 0);
+    }, 0) * (duration + 1);
     
     const availableCapacity = totalCapacityOnTarget - assignedOnTargetDuringDrop;
 
@@ -443,12 +444,30 @@ export default function StitchFlowPage() {
     return units.find(u => u.id === selectedUnitId) || null;
   }, [selectedUnitId, units]);
   
+  const allLines = useMemo(() => units.flatMap(unit => 
+    unit.lines.map(line => ({ ...line, unitName: unit.name }))
+  ).sort((a,b) => a.name.localeCompare(b.name)), [units]);
+  
+  const orderColorMap = useMemo(() => {
+    const allAssignments = allLines.flatMap(l => l.assignments);
+    const orderIds = new Set(allAssignments.map(a => a.orderId));
+    const ORDER_COLORS = [
+      'bg-blue-500', 'bg-green-500', 'bg-yellow-500', 'bg-purple-500', 
+      'bg-pink-500', 'bg-indigo-500', 'bg-teal-500', 'bg-orange-500'
+    ];
+    return Array.from(orderIds).reduce((acc, orderId, index) => {
+      acc[orderId] = ORDER_COLORS[index % ORDER_COLORS.length];
+      return acc;
+    }, {} as Record<string, string>);
+  }, [allLines]);
+
+
   return (
     <ClientOnlyDndProvider
       onDragStart={handleDragStart}
       onDragEnd={handleDragEnd}
     >
-      <div className="flex flex-col bg-background text-foreground font-body">
+      <div className="flex min-h-screen flex-col bg-background text-foreground font-body">
         <AppHeader
           onReset={handleReset}
           onAddTentative={() => setTentativeModalOpen(true)}
@@ -461,19 +480,13 @@ export default function StitchFlowPage() {
           selectedMonth={selectedMonth}
           setSelectedMonth={setSelectedMonth}
         />
-        <main className="flex flex-col gap-6 p-4 lg:p-6">
-          <div className="flex-shrink-0">
-            <OrdersSection orders={availableOrders} />
-          </div>
-          <div className="flex-shrink-0">
-            <UnitsSection units={units} onUnassign={handleUnassignOrder} />
-          </div>
-          <div className="flex-shrink-0">
-            <TimelineSection units={units} selectedMonth={selectedMonth} />
-          </div>
+        <main className="flex flex-1 flex-col gap-6 p-4 lg:p-6">
+          <OrdersSection orders={availableOrders} />
+          <UnitsSection units={units} onUnassign={handleUnassignOrder} />
+          <TimelineSection units={units} selectedMonth={selectedMonth} allLines={allLines} orderColorMap={orderColorMap}/>
         </main>
 
-        {isAssignModalOpen && selectedOrder && selectedUnit && (
+        {isAssignModalOpen && selectedOrder && (
           <AssignOrderModal
             isOpen={isAssignModalOpen}
             onClose={() => {
@@ -482,7 +495,8 @@ export default function StitchFlowPage() {
               setSelectedOrderId(null);
             }}
             order={selectedOrder}
-            unit={selectedUnit}
+            unit={selectedUnit || units.find(u => u.lines.some(l => selectedUnitId && u.id === selectedUnitId))}
+            units={units}
             onAssign={handleAssignOrder}
           />
         )}
@@ -515,7 +529,7 @@ export default function StitchFlowPage() {
             }}>
                 <TimelineAssignment
                     assignment={activeItem}
-                    color="bg-blue-500"
+                    color={orderColorMap[activeItem.orderId] || 'bg-gray-400'}
                     isDragging
                 />
             </div>
@@ -525,5 +539,3 @@ export default function StitchFlowPage() {
     </ClientOnlyDndProvider>
   );
 }
-
-    

@@ -7,27 +7,15 @@ import { differenceInDays, parseISO, isWithinInterval, startOfDay, eachDayOfInte
 import TimelineCell from './timeline-cell';
 import TimelineAssignment from './timeline-assignment';
 
-const ORDER_COLORS = [
-  'bg-blue-500', 'bg-green-500', 'bg-yellow-500', 'bg-purple-500', 
-  'bg-pink-500', 'bg-indigo-500', 'bg-teal-500', 'bg-orange-500'
-];
-
 type TimelineRowProps = {
   line: ProductionLine & { unitName: string };
   days: Date[];
   monthStart: Date;
+  orderColorMap: Record<string, string>;
 };
 
-export default function TimelineRow({ line, days, monthStart }: TimelineRowProps) {
+export default function TimelineRow({ line, days, monthStart, orderColorMap }: TimelineRowProps) {
     
-  const orderColorMap = useMemo(() => {
-    const orderIds = new Set(line.assignments.map(a => a.orderId));
-    return Array.from(orderIds).reduce((acc, orderId, index) => {
-      acc[orderId] = ORDER_COLORS[index % ORDER_COLORS.length];
-      return acc;
-    }, {} as Record<string, string>);
-  }, [line.assignments]);
-
   const dailyUsage = useMemo(() => {
     const usage: Record<string, number> = {};
     days.forEach(day => {
@@ -99,7 +87,6 @@ export default function TimelineRow({ line, days, monthStart }: TimelineRowProps
                         >
                            <TimelineAssignment
                                 assignment={assignment}
-                                lineId={line.id}
                                 color={orderColorMap[assignment.orderId] || 'bg-gray-500'}
                             />
                         </div>
