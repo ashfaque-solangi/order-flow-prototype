@@ -27,8 +27,8 @@ export default function TimelineCell({ lineId, date, utilization, assigned, capa
     <div
       ref={setNodeRef}
       className={cn(
-        "border-t h-12 relative group-hover:bg-muted/50",
-        isOver && "outline outline-2 outline-primary -outline-offset-1 z-10"
+        "h-full w-full relative",
+        isOver && "outline outline-2 outline-primary -outline-offset-2 z-10"
       )}
     >
         <DailyCapacityIndicator utilization={utilization} assigned={assigned} capacity={capacity} />

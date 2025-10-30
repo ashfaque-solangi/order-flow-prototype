@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 import { useMemo } from 'react';
 
 type TimelineAssignmentProps = {
-  assignment: Assignment;
+  assignment: Assignment & { lineId: string };
   color: string;
   isDragging?: boolean;
 };
@@ -19,6 +19,7 @@ export default function TimelineAssignment({ assignment, color, isDragging = fal
         data: {
             type: 'assignment',
             assignment: assignment,
+            lineId: assignment.lineId,
         },
     });
 
@@ -36,7 +37,7 @@ export default function TimelineAssignment({ assignment, color, isDragging = fal
             <Tooltip>
                 <TooltipTrigger asChild>
                     <div className={cn(
-                        "h-full w-full rounded-md text-white flex items-center px-2 text-xs font-medium overflow-hidden",
+                        "h-full w-full rounded-md text-white flex items-center px-2 text-xs font-medium overflow-hidden border border-black/20",
                         "hover:ring-2 hover:ring-offset-2 hover:ring-primary",
                         dndIsDragging || isDragging ? "cursor-grabbing shadow-lg" : "cursor-grab",
                         color
