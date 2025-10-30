@@ -52,26 +52,26 @@ export default function AppHeader({
         <div className="flex items-center gap-2 flex-wrap">
           <div className="flex items-center gap-2">
             <Select
-              value={filters.customer[0] || ''}
-              onValueChange={(value) => handleFilterChange('customer', value ? [value] : [])}
+              value={filters.customer[0] || 'all'}
+              onValueChange={(value) => handleFilterChange('customer', value === 'all' ? [] : [value])}
             >
               <SelectTrigger className="w-[150px] h-9 text-xs">
                 <SelectValue placeholder="All Customers" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Customers</SelectItem>
+                <SelectItem value="all">All Customers</SelectItem>
                 {uniqueCustomers.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select
-              value={filters.oc[0] || ''}
-              onValueChange={(value) => handleFilterChange('oc', value ? [value] : [])}
+              value={filters.oc[0] || 'all'}
+              onValueChange={(value) => handleFilterChange('oc', value === 'all' ? [] : [value])}
             >
               <SelectTrigger className="w-[140px] h-9 text-xs">
                 <SelectValue placeholder="All OC #" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All OC #</SelectItem>
+                <SelectItem value="all">All OC #</SelectItem>
                 {uniqueOCs.map(oc => <SelectItem key={oc} value={oc}>{oc}</SelectItem>)}
               </SelectContent>
             </Select>
