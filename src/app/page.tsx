@@ -356,10 +356,16 @@ export default function StitchFlowPage() {
           selectedMonth={selectedMonth}
           setSelectedMonth={setSelectedMonth}
         />
-        <main className="flex-1 flex flex-col gap-6 p-4 lg:p-6 overflow-y-auto">
-          <OrdersSection orders={availableOrders} />
-          <UnitsSection units={units} onUnassign={handleUnassignOrder} />
-          <TimelineSection units={units} selectedMonth={selectedMonth} />
+        <main className="flex-1 flex flex-col gap-6 p-4 lg:p-6 overflow-hidden">
+          <div className="flex-shrink-0">
+            <OrdersSection orders={availableOrders} />
+          </div>
+          <div className="flex-shrink-0">
+            <UnitsSection units={units} onUnassign={handleUnassignOrder} />
+          </div>
+          <div className="flex-1 min-h-0">
+            <TimelineSection units={units} selectedMonth={selectedMonth} />
+          </div>
         </main>
 
         {isAssignModalOpen && selectedOrder && selectedUnit && (
@@ -397,5 +403,3 @@ export default function StitchFlowPage() {
     </ClientOnlyDndProvider>
   );
 }
-
-    
