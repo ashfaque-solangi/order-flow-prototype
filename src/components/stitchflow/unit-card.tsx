@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo } from 'react';
@@ -5,11 +6,11 @@ import { Unit } from '@/lib/data';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import CapacityBar from './capacity-bar';
 import { X, Factory, Workflow } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
 import { useDroppable } from '@dnd-kit/core';
 import { cn } from '@/lib/utils';
+import LineCapacityChart from './line-capacity-chart';
 
 type UnitCardProps = {
   unit: Unit;
@@ -25,28 +26,31 @@ export default function UnitCard({ unit, onUnassign }: UnitCardProps) {
     },
   });
 
-  const { totalCapacity, totalAssigned } = useMemo(() => {
-    const monthlyMultiplier = 30;
-    let totalCapacity = 0;
-    let totalAssigned = 0;
-    unit.lines.forEach(line => {
-      totalCapacity += line.dailyCap * monthlyMultiplier;
-      totalAssigned += line.assignments.reduce((sum, a) => sum + a.quantity, 0);
-    });
-    return { totalCapacity, totalAssigned };
-  }, [unit]);
-
   const assignedOrders = useMemo(() => {
     return unit.lines.flatMap(line => 
-      line.assignments.map(a => ({...a, lineId: line.id}))
+      line.assignments.map(a => ({...a, lineId: line.id, lineName: line.name }))
     );
   }, [unit]);
+
+  const chartData = useMemo(() => {
+    const monthlyMultiplier = 30; // Assuming a 30-day month for capacity calculation
+    return unit.lines.map(line => {
+      const totalAssigned = line.assignments.reduce((sum, a) => sum + a.quantity, 0);
+      const totalCapacity = line.dailyCap * monthlyMultiplier;
+      return {
+        name: line.name,
+        total: totalCapacity,
+        assigned: totalAssigned,
+      };
+    });
+  }, [unit.lines]);
+
 
   return (
     <Card 
       ref={setNodeRef}
       className={cn(
-        "w-[380px] shrink-0 flex flex-col transition-all",
+        "w-[420px] shrink-0 flex flex-col transition-all",
         isOver && "ring-2 ring-primary ring-offset-2 scale-105"
       )}
     >
@@ -58,21 +62,14 @@ export default function UnitCard({ unit, onUnassign }: UnitCardProps) {
             </CardTitle>
             <Badge variant="secondary">{unit.lines.length} Lines</Badge>
         </div>
-        <CardDescription>Monthly Capacity View</CardDescription>
+        <CardDescription>Monthly Capacity Utilization</CardDescription>
       </CardHeader>
       <CardContent className="flex-1 flex flex-col gap-4">
-        <div>
-          <div className="flex justify-between text-sm mb-1 text-muted-foreground">
-            <span>
-              Assigned: <span className="font-bold text-foreground">{totalAssigned.toLocaleString()}</span>
-            </span>
-            <span>
-              Total: <span className="font-bold text-foreground">{totalCapacity.toLocaleString()}</span>
-            </span>
-          </div>
-          <CapacityBar total={totalCapacity} used={totalAssigned} />
+        <div className='h-[150px]'>
+          <LineCapacityChart data={chartData} />
         </div>
-        <div className="flex-1 flex flex-col">
+
+        <div className="flex-1 flex flex-col min-h-0">
           <h4 className="font-semibold text-sm mb-2 flex items-center gap-2"><Workflow className="w-4 h-4"/> Assigned Orders</h4>
           <ScrollArea className="flex-1 pr-3 -mr-3">
              <div className="space-y-2">
@@ -81,7 +78,7 @@ export default function UnitCard({ unit, onUnassign }: UnitCardProps) {
                 <div key={a.id} className="flex items-center justify-between text-sm p-2 rounded-md bg-secondary/50">
                   <div className="flex flex-col">
                     <span className="font-medium">{a.order_num}</span>
-                    <span className="text-xs text-muted-foreground">Qty: {a.quantity.toLocaleString()}</span>
+                    <span className="text-xs text-muted-foreground">Qty: {a.quantity.toLocaleString()} on {a.lineName}</span>
                   </div>
                   <Button
                     variant="ghost"
