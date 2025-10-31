@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useMemo } from 'react';
@@ -7,6 +8,7 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { CalendarDays } from 'lucide-react';
 import TimelineRow from './timeline/timeline-row';
 import { Badge } from '@/components/ui/badge';
+import TimelineCell from './timeline/timeline-cell';
 
 type TimelineSectionProps = {
   units: Unit[];
@@ -94,3 +96,5 @@ export default function TimelineSection({ units, selectedMonth, allLines, orderC
     </div>
   );
 }
+
+    

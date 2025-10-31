@@ -23,10 +23,12 @@ export default function TimelineCell({ lineId, date }: TimelineCellProps) {
     <div
       ref={setNodeRef}
       className={cn(
-        "h-full w-full relative",
+        "h-full w-full absolute inset-0 z-0",
         isOver && "outline outline-2 outline-primary -outline-offset-2 z-20 bg-primary/10"
       )}
     >
     </div>
   );
 }
+
+    

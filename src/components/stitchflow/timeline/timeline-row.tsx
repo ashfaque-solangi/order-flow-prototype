@@ -6,6 +6,7 @@ import { ProductionLine, Assignment } from '@/lib/data';
 import { differenceInDays, parseISO, isWithinInterval, areIntervalsOverlapping, startOfDay } from 'date-fns';
 import TimelineAssignment from './timeline-assignment';
 import DailyCapacityChart from './daily-capacity-indicator';
+import TimelineCell from './timeline-cell';
 
 type TimelineRowProps = {
   line: ProductionLine & { unitName: string };
@@ -106,6 +107,13 @@ export default function TimelineRow({ line, days, monthStart, orderColorMap }: T
                 height: `${rowHeight}px`,
             }}
         >
+            {/* Background droppable cells */}
+             {days.map((day, dayIndex) => (
+                <div key={day.toISOString()} className="h-full w-full border-r relative" style={{gridColumn: dayIndex+1}}>
+                   <TimelineCell lineId={line.id} date={day} />
+                </div>
+            ))}
+
             {/* Daily Capacity Chart as background */}
             <div className='absolute bottom-1 left-0 right-0 h-6' style={{gridColumn: `1 / -1`, gridRow: 1}}>
                 <DailyCapacityChart
@@ -166,3 +174,5 @@ export default function TimelineRow({ line, days, monthStart, orderColorMap }: T
     </div>
   );
 }
+
+    
