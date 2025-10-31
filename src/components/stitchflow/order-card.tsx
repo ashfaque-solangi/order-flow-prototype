@@ -38,7 +38,7 @@ export default function OrderCard({ order, isDragging }: OrderCardProps) {
         (dndIsDragging || isDragging) && "shadow-2xl z-50 scale-105",
         !isAssignable && "opacity-60 bg-slate-50",
         isAssignable ? "cursor-grab touch-none" : "cursor-not-allowed",
-        order.tentative && "border-amber-500/50"
+        order.tentative && "border-dashed border-amber-500/80"
       )}
       {...(isAssignable ? attributes : {})}
       {...(isAssignable ? listeners : {})}
