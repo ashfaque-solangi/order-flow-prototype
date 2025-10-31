@@ -10,7 +10,6 @@ import { parseISO, differenceInDays } from 'date-fns';
 
 type TimelineAssignmentProps = {
   assignment: Assignment & { lineId: string };
-  color: string;
   isDragging?: boolean;
 };
 
@@ -25,7 +24,7 @@ const TentativeStripe = () => (
 );
 
 
-export default function TimelineAssignment({ assignment, color, isDragging = false }: TimelineAssignmentProps) {
+export default function TimelineAssignment({ assignment, isDragging = false }: TimelineAssignmentProps) {
     const { attributes, listeners, setNodeRef, transform, isDragging: dndIsDragging, active } = useDraggable({
         id: `assignment-${assignment.id}`,
         data: {
@@ -47,6 +46,8 @@ export default function TimelineAssignment({ assignment, color, isDragging = fal
     const duration = differenceInDays(parseISO(assignment.endDate), parseISO(assignment.startDate)) + 1;
     const showShortLabel = duration < 2;
 
+    const color = isTentative ? 'bg-gray-400' : 'bg-primary';
+
 
   return (
     <div ref={setNodeRef} style={style} {...listeners} {...attributes} className={cn("h-full w-full", isGhost && "opacity-50")}>
@@ -57,7 +58,7 @@ export default function TimelineAssignment({ assignment, color, isDragging = fal
                         "h-full w-full rounded-md text-white flex items-center px-2 text-xs font-medium overflow-hidden border border-black/20 relative",
                         "hover:ring-2 hover:ring-offset-2 hover:ring-primary",
                         dndIsDragging || isDragging ? "cursor-grabbing shadow-lg" : "cursor-grab",
-                        isTentative ? 'bg-gray-400' : color
+                        color
                     )}>
                         {isTentative && <TentativeStripe />}
 

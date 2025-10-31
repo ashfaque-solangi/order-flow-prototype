@@ -14,7 +14,6 @@ type TimelineSectionProps = {
   units: Unit[];
   selectedMonth: Date;
   allLines: (ProductionLine & { unitName: string })[];
-  orderColorMap: Record<string, string>;
 };
 
 const CapacityLegend = () => (
@@ -39,7 +38,7 @@ const CapacityLegend = () => (
 );
 
 
-export default function TimelineSection({ units, selectedMonth, allLines, orderColorMap }: TimelineSectionProps) {
+export default function TimelineSection({ units, selectedMonth, allLines }: TimelineSectionProps) {
   const { days, monthStart } = useMemo(() => {
     const monthStart = startOfMonth(selectedMonth);
     const numDays = getDaysInMonth(selectedMonth);
@@ -86,7 +85,6 @@ export default function TimelineSection({ units, selectedMonth, allLines, orderC
                 line={line}
                 days={days} 
                 monthStart={monthStart}
-                orderColorMap={orderColorMap}
               />
             ))}
           </div>
@@ -96,5 +94,3 @@ export default function TimelineSection({ units, selectedMonth, allLines, orderC
     </div>
   );
 }
-
-    

@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useMemo } from 'react';
@@ -12,7 +13,6 @@ type TimelineRowProps = {
   line: ProductionLine & { unitName: string };
   days: Date[];
   monthStart: Date;
-  orderColorMap: Record<string, string>;
 };
 
 function getAssignmentLayout(assignments: Assignment[]): Assignment[][] {
@@ -55,7 +55,7 @@ function getAssignmentLayout(assignments: Assignment[]): Assignment[][] {
 }
 
 
-export default function TimelineRow({ line, days, monthStart, orderColorMap }: TimelineRowProps) {
+export default function TimelineRow({ line, days, monthStart }: TimelineRowProps) {
     
   const dailyUsage = useMemo(() => {
     const usage: Record<string, number> = {};
@@ -160,7 +160,6 @@ export default function TimelineRow({ line, days, monthStart, orderColorMap }: T
                             >
                                <TimelineAssignment
                                     assignment={{...assignment, lineId: line.id}}
-                                    color={orderColorMap[assignment.orderId] || 'bg-gray-500'}
                                 />
                             </div>
                         );
@@ -174,5 +173,3 @@ export default function TimelineRow({ line, days, monthStart, orderColorMap }: T
     </div>
   );
 }
-
-    

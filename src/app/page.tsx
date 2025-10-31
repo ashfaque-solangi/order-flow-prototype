@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -485,20 +486,6 @@ export default function StitchFlowPage() {
     unit.lines.map(line => ({ ...line, unitName: unit.name }))
   ).sort((a,b) => a.name.localeCompare(b.name)), [units]);
   
-  const orderColorMap = useMemo(() => {
-    const allAssignments = allLines.flatMap(l => l.assignments);
-    const orderIds = new Set(allAssignments.map(a => a.orderId));
-    const ORDER_COLORS = [
-      'bg-blue-500', 'bg-green-500', 'bg-yellow-500', 'bg-purple-500', 
-      'bg-pink-500', 'bg-indigo-500', 'bg-teal-500', 'bg-orange-500'
-    ];
-    return Array.from(orderIds).reduce((acc, orderId, index) => {
-      acc[orderId] = ORDER_COLORS[index % ORDER_COLORS.length];
-      return acc;
-    }, {} as Record<string, string>);
-  }, [allLines]);
-
-
   return (
     <ClientOnlyDndProvider
       onDragStart={handleDragStart}
@@ -520,7 +507,7 @@ export default function StitchFlowPage() {
         <main className="flex flex-col flex-1 p-4 lg:p-6 gap-6 overflow-y-auto">
           <OrdersSection orders={availableOrders} />
           <UnitsSection units={units} onUnassign={handleUnassignOrder} />
-          <TimelineSection units={units} selectedMonth={selectedMonth} allLines={allLines} orderColorMap={orderColorMap}/>
+          <TimelineSection units={units} selectedMonth={selectedMonth} allLines={allLines} />
         </main>
 
         {isAssignModalOpen && selectedOrder && (
@@ -580,7 +567,6 @@ export default function StitchFlowPage() {
             }}>
                 <TimelineAssignment
                     assignment={activeItem as Assignment & { lineId: string }}
-                    color={orderColorMap[activeItem.orderId] || 'bg-gray-400'}
                     isDragging
                 />
             </div>

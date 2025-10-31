@@ -5,7 +5,7 @@ import { Order } from '@/lib/data';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Tag, Users, Hash, Calendar, CheckCircle, Package } from 'lucide-react';
+import { Tag, Users, Calendar, Package, Hash, CheckCircle, CircleDotDashed } from 'lucide-react';
 import { useDraggable } from '@dnd-kit/core';
 import { cn } from '@/lib/utils';
 
@@ -43,7 +43,7 @@ export default function OrderCard({ order, isDragging }: OrderCardProps) {
       {...(isAssignable ? attributes : {})}
       {...(isAssignable ? listeners : {})}
     >
-      <CardHeader className="pb-2">
+      <CardHeader className="pb-3">
         <div className="flex justify-between items-start">
             <div>
                 <CardTitle className="text-lg flex items-center gap-2">
@@ -58,7 +58,7 @@ export default function OrderCard({ order, isDragging }: OrderCardProps) {
             {order.tentative && <Badge variant="outline" className="border-amber-500 text-amber-600 bg-amber-50">Tentative</Badge>}
         </div>
       </CardHeader>
-      <CardContent className="flex-1 text-sm pt-4 flex flex-col">
+      <CardContent className="flex-1 text-sm pt-3 flex flex-col">
         <div className="grid grid-cols-2 gap-y-3 gap-x-2 text-muted-foreground">
             <div className="flex items-center gap-2">
                 <Tag className="w-4 h-4" />
@@ -68,19 +68,27 @@ export default function OrderCard({ order, isDragging }: OrderCardProps) {
                 <Calendar className="w-4 h-4" />
                 <span>ETD: {order.etd_date}</span>
             </div>
-             <div className="flex items-center gap-2">
-                <Hash className="w-4 h-4" />
-                <span>Total: {order.qty.total.toLocaleString()}</span>
-            </div>
-            <div className="flex items-center gap-2">
-                <CheckCircle className="w-4 h-4" />
-                <span>Assigned: {order.qty.assigned.toLocaleString()}</span>
-            </div>
         </div>
-        <Separator className="my-3" />
-        <div className="flex justify-between items-center font-medium mt-auto">
-            <span>Remaining Qty:</span>
-            <span className="text-primary text-lg">{order.qty.remaining.toLocaleString()}</span>
+        <Separator className="my-4" />
+        <div className="grid grid-cols-3 gap-2 text-center">
+            <div>
+                <Badge variant="secondary" className="w-full justify-center py-1">
+                     <Hash className="w-3.5 h-3.5 mr-1.5"/> Total
+                </Badge>
+                <p className="font-bold text-lg mt-1">{order.qty.total.toLocaleString()}</p>
+            </div>
+            <div>
+                <Badge variant="secondary" className="w-full justify-center py-1">
+                    <CheckCircle className="w-3.5 h-3.5 mr-1.5"/> Assigned
+                </Badge>
+                <p className="font-bold text-lg mt-1">{order.qty.assigned.toLocaleString()}</p>
+            </div>
+            <div>
+                <Badge variant="secondary" className="w-full justify-center py-1">
+                    <CircleDotDashed className="w-3.5 h-3.5 mr-1.5"/> Remaining
+                </Badge>
+                <p className="font-bold text-lg mt-1 text-primary">{order.qty.remaining.toLocaleString()}</p>
+            </div>
         </div>
       </CardContent>
     </Card>
