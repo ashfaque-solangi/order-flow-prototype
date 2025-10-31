@@ -12,6 +12,17 @@ type TimelineAssignmentProps = {
   isDragging?: boolean;
 };
 
+const TentativeStripe = ({ color }: { color: string }) => (
+    <div
+      className="absolute inset-0 opacity-30"
+      style={{
+        backgroundImage: `repeating-linear-gradient(-45deg, transparent, transparent 5px, ${color} 5px, ${color} 10px)`,
+        backgroundSize: '150% 150%',
+      }}
+    />
+);
+
+
 export default function TimelineAssignment({ assignment, color, isDragging = false }: TimelineAssignmentProps) {
     const { attributes, listeners, setNodeRef, transform, isDragging: dndIsDragging, active } = useDraggable({
         id: `assignment-${assignment.id}`,
@@ -29,6 +40,10 @@ export default function TimelineAssignment({ assignment, color, isDragging = fal
     } : undefined;
 
     const isGhost = !!active && active.id === `assignment-${assignment.id}` && !isDragging;
+    
+    const bgColor = color.replace('bg-', '');
+    const isTentative = !!assignment.tentative;
+
 
   return (
     <div ref={setNodeRef} style={style} {...listeners} {...attributes} className={cn("h-full w-full", isGhost && "opacity-50")}>
@@ -36,16 +51,22 @@ export default function TimelineAssignment({ assignment, color, isDragging = fal
             <Tooltip>
                 <TooltipTrigger asChild>
                     <div className={cn(
-                        "h-full w-full rounded-md text-white flex items-center px-2 text-xs font-medium overflow-hidden border border-black/20",
+                        "h-full w-full rounded-md text-white flex items-center px-2 text-xs font-medium overflow-hidden border border-black/20 relative",
                         "hover:ring-2 hover:ring-offset-2 hover:ring-primary",
                         dndIsDragging || isDragging ? "cursor-grabbing shadow-lg" : "cursor-grab",
-                        color
+                        !isTentative && color
                     )}>
-                        <p className="truncate">{assignment.order_num} ({assignment.quantity.toLocaleString()})</p>
+                        {isTentative ? (
+                            <div className="relative h-full w-full bg-gray-400">
+                                <TentativeStripe color={bgColor} />
+                            </div>
+                        ) : null}
+
+                        <p className="truncate relative z-10">{assignment.order_num} ({assignment.quantity.toLocaleString()})</p>
                     </div>
                 </TooltipTrigger>
                 <TooltipContent>
-                    <p className="font-bold">{assignment.order_num}</p>
+                    <p className="font-bold">{assignment.order_num} {isTentative && <span className="text-amber-600 font-normal">(Tentative)</span>}</p>
                     <p>Quantity: {assignment.quantity.toLocaleString()}</p>
                     <p>Dates: {assignment.startDate} to {assignment.endDate}</p>
                 </TooltipContent>

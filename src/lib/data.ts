@@ -12,7 +12,7 @@ export interface Order {
   style: string;
   order_date: string; // YYYY-MM-DD
   etd_date: string; // YYYY-MM-DD
-  status: 'Planned' | 'Partially Assigned' | 'Fully Assigned' | 'Tentative';
+  status: 'Planned' | 'Partially Assigned' | 'Fully Assigned';
   tentative: boolean;
 }
 
@@ -23,6 +23,7 @@ export interface Assignment {
   quantity: number;
   startDate: string; // YYYY-MM-DD
   endDate: string; // YYYY-MM-DD
+  tentative?: boolean;
 }
 
 export interface ProductionLine {
@@ -67,7 +68,7 @@ export const initialOrders: Order[] = [
     id: 'ord-3',
     order_num: 'OC-1203C',
     qty: { total: 8000, assigned: 0, remaining: 8000 },
-    customer: 'Charlie Co',
+    customer: 'Planning Dept',
     style: 'ST-003',
     order_date: format(subDays(today, 10), 'yyyy-MM-dd'),
     etd_date: format(addDays(today, 20), 'yyyy-MM-dd'),

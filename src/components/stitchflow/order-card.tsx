@@ -37,7 +37,8 @@ export default function OrderCard({ order, isDragging }: OrderCardProps) {
         "w-[320px] shrink-0 flex flex-col transition-shadow hover:shadow-lg",
         (dndIsDragging || isDragging) && "shadow-2xl z-50 scale-105",
         !isAssignable && "opacity-60 bg-slate-50",
-        isAssignable ? "cursor-grab touch-none" : "cursor-not-allowed"
+        isAssignable ? "cursor-grab touch-none" : "cursor-not-allowed",
+        order.tentative && "border-amber-500/50"
       )}
       {...(isAssignable ? attributes : {})}
       {...(isAssignable ? listeners : {})}
@@ -54,7 +55,7 @@ export default function OrderCard({ order, isDragging }: OrderCardProps) {
                     {order.customer}
                 </CardDescription>
             </div>
-            {order.tentative && <Badge variant="outline" className="border-amber-500 text-amber-600">Tentative</Badge>}
+            {order.tentative && <Badge variant="outline" className="border-amber-500 text-amber-600 bg-amber-50">Tentative</Badge>}
         </div>
       </CardHeader>
       <CardContent className="flex-1 text-sm pt-4 flex flex-col">

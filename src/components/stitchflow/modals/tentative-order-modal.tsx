@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -31,7 +30,17 @@ type FormValues = {
 };
 
 export default function TentativeOrderModal({ isOpen, onClose, onAddOrder }: TentativeOrderModalProps) {
-  const { register, handleSubmit, formState: { errors }, reset } = useForm<FormValues>();
+  const { register, handleSubmit, formState: { errors }, reset } = useForm<FormValues>({
+    defaultValues: {
+      customer: "Planning Dept",
+      etd_date: format(new Date(), 'yyyy-MM-dd')
+    }
+  });
+
+  const handleClose = () => {
+    reset();
+    onClose();
+  }
 
   const onSubmit: SubmitHandler<FormValues> = (data) => {
     onAddOrder({
@@ -39,12 +48,11 @@ export default function TentativeOrderModal({ isOpen, onClose, onAddOrder }: Ten
       order_date: format(new Date(), 'yyyy-MM-dd'),
       tentative: true,
     });
-    reset();
-    onClose();
+    handleClose();
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Create Tentative Order</DialogTitle>
@@ -103,7 +111,7 @@ export default function TentativeOrderModal({ isOpen, onClose, onAddOrder }: Ten
           </div>
 
           <DialogFooter>
-            <Button variant="outline" type="button" onClick={onClose}>Cancel</Button>
+            <Button variant="outline" type="button" onClick={handleClose}>Cancel</Button>
             <Button type="submit">Create Order</Button>
           </DialogFooter>
         </form>

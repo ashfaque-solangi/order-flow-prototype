@@ -249,6 +249,7 @@ export default function StitchFlowPage() {
                 quantity: assignment.quantity,
                 startDate: format(dates.from, 'yyyy-MM-dd'),
                 endDate: format(dates.to, 'yyyy-MM-dd'),
+                tentative: order.tentative,
             };
 
             const newLines = [...tempUnits[unitIndex].lines];
@@ -340,6 +341,7 @@ export default function StitchFlowPage() {
         remaining: newOrderData.qty,
       },
       status: 'Planned',
+      tentative: true,
     };
     setOrders(prev => [newOrder, ...prev]);
     toast({
@@ -588,5 +590,3 @@ export default function StitchFlowPage() {
     </ClientOnlyDndProvider>
   );
 }
-
-    
