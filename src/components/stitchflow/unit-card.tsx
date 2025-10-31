@@ -10,7 +10,7 @@ import { X, Factory, Workflow } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
 import { useDroppable } from '@dnd-kit/core';
 import { cn } from '@/lib/utils';
-import LineCapacityChart from './line-capacity-chart';
+import CapacityBar from './capacity-bar';
 
 type UnitCardProps = {
   unit: Unit;
@@ -32,17 +32,15 @@ export default function UnitCard({ unit, onUnassign }: UnitCardProps) {
     );
   }, [unit]);
 
-  const chartData = useMemo(() => {
-    const monthlyMultiplier = 30; // Assuming a 30-day month for capacity calculation
-    return unit.lines.map(line => {
-      const totalAssigned = line.assignments.reduce((sum, a) => sum + a.quantity, 0);
-      const totalCapacity = line.dailyCap * monthlyMultiplier;
-      return {
-        name: line.name,
-        total: totalCapacity,
-        assigned: totalAssigned,
-      };
+  const { totalCapacity, totalAssigned } = useMemo(() => {
+    const monthlyMultiplier = 30; // Assuming a 30-day month
+    let totalCapacity = 0;
+    let totalAssigned = 0;
+    unit.lines.forEach(line => {
+      totalCapacity += line.dailyCap * monthlyMultiplier;
+      totalAssigned += line.assignments.reduce((sum, a) => sum + a.quantity, 0);
     });
+    return { totalCapacity, totalAssigned };
   }, [unit.lines]);
 
 
@@ -65,8 +63,8 @@ export default function UnitCard({ unit, onUnassign }: UnitCardProps) {
         <CardDescription>Monthly Capacity Utilization</CardDescription>
       </CardHeader>
       <CardContent className="flex-1 flex flex-col gap-4">
-        <div className='h-[150px]'>
-          <LineCapacityChart data={chartData} />
+        <div>
+          <CapacityBar total={totalCapacity} used={totalAssigned} />
         </div>
 
         <div className="flex-1 flex flex-col min-h-0">

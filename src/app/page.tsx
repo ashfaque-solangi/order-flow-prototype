@@ -19,6 +19,7 @@ import type { ProductionLine, Assignment } from '@/lib/data';
 import { ClientOnlyDndProvider } from '@/components/stitchflow/dnd-provider';
 import OrderCard from '@/components/stitchflow/order-card';
 import TimelineAssignment from '@/components/stitchflow/timeline/timeline-assignment';
+import TimelineOverview from '@/components/stitchflow/timeline/timeline-overview';
 
 
 export type Filters = {
@@ -518,6 +519,7 @@ export default function StitchFlowPage() {
         <main className="flex flex-col flex-1 p-4 lg:p-6 gap-6 overflow-y-auto">
           <OrdersSection orders={availableOrders} />
           <UnitsSection units={units} onUnassign={handleUnassignOrder} />
+          <TimelineOverview allLines={allLines} />
           <TimelineSection units={units} selectedMonth={selectedMonth} allLines={allLines} orderColorMap={orderColorMap}/>
         </main>
 
@@ -577,7 +579,7 @@ export default function StitchFlowPage() {
                 height: '40px'
             }}>
                 <TimelineAssignment
-                    assignment={activeItem}
+                    assignment={activeItem as Assignment & { lineId: string }}
                     color={orderColorMap[activeItem.orderId] || 'bg-gray-400'}
                     isDragging
                 />
