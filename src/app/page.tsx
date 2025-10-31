@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -14,7 +12,7 @@ import TentativeOrderModal from '@/components/stitchflow/modals/tentative-order-
 import FiltersModal from '@/components/stitchflow/modals/filters-modal';
 import { useToast } from '@/hooks/use-toast';
 import { validateCapacity } from '@/ai/flows/capacity-validation';
-import { format, differenceInDays, isWithinInterval, startOfDay, parseISO } from 'date-fns';
+import { format, differenceInDays, isWithinInterval, startOfDay, parseISO, areIntervalsOverlapping } from 'date-fns';
 import { DragEndEvent, DragStartEvent, DragOverlay } from '@dnd-kit/core';
 import type { ProductionLine, Assignment } from '@/lib/data';
 import { ClientOnlyDndProvider } from '@/components/stitchflow/dnd-provider';
@@ -157,6 +155,10 @@ export default function StitchFlowPage() {
     if (!order) return { success: false, message: 'Order not found' };
 
     const productionDays = differenceInDays(dates.to, dates.from) + 1;
+    const assignmentInterval = {
+      start: startOfDay(dates.from),
+      end: startOfDay(dates.to),
+    };
     
     // Process all assignments at once
     for (const assignment of assignments) {
@@ -180,11 +182,13 @@ export default function StitchFlowPage() {
         }
         
         const existingAssignmentsOnLine = targetLine.assignments.reduce((sum, a) => {
-            const aStart = startOfDay(parseISO(a.startDate));
-            const aEnd = startOfDay(parseISO(a.endDate));
-            if(isWithinInterval(startOfDay(dates.from), {start: aStart, end: aEnd}) || isWithinInterval(startOfDay(dates.to), {start: aStart, end: aEnd})) {
-                const assignmentDuration = differenceInDays(aEnd, aStart) + 1;
-                return sum + (a.quantity / assignmentDuration);
+            const existingInterval = {
+                start: startOfDay(parseISO(a.startDate)),
+                end: startOfDay(parseISO(a.endDate)),
+            };
+            if (areIntervalsOverlapping(assignmentInterval, existingInterval, { inclusive: true })) {
+                const duration = differenceInDays(existingInterval.end, existingInterval.start) + 1;
+                return sum + (a.quantity / duration);
             }
             return sum;
         }, 0) * productionDays;
@@ -368,7 +372,7 @@ export default function StitchFlowPage() {
         return { success: false, message };
     }
     
-    const duration = differenceInDays(parseISO(assignment.endDate), parseISO(assignment.startDate));
+    const duration = differenceInDays(startOfDay(parseISO(assignment.endDate)), startOfDay(parseISO(assignment.startDate)));
     const newEndDate = new Date(newStartDate);
     newEndDate.setDate(newEndDate.getDate() + duration);
 
@@ -519,7 +523,7 @@ export default function StitchFlowPage() {
               setSelectedOrderId(null);
             }}
             order={selectedOrder}
-            unit={selectedUnit || units.find(u => u.lines.some(l => selectedUnitId && u.id === selectedUnitId))}
+            unit={selectedUnit}
             units={units}
             onAssign={handleAssignOrder}
           />
@@ -576,3 +580,5 @@ export default function StitchFlowPage() {
     </ClientOnlyDndProvider>
   );
 }
+
+    
