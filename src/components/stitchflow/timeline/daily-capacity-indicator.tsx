@@ -1,44 +1,51 @@
 
 'use client';
-
+import { useDroppable } from '@dnd-kit/core';
 import { cn } from '@/lib/utils';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
-type DailyCapacityIndicatorProps = {
-  utilization: number;
-  assigned: number;
-  capacity: number;
-};
+type DailyCapacityChartProps = {
+    days: Date[];
+    dailyUsage: Record<string, number>;
+    dailyCap: number;
+    lineId: string;
+}
 
-export default function DailyCapacityIndicator({ utilization, assigned, capacity }: DailyCapacityIndicatorProps) {
-  const getBackgroundColor = (util: number) => {
-    if (util > 1) return 'bg-red-500/80';
-    if (util > 0.9) return 'bg-red-500/60';
-    if (util > 0.7) return 'bg-yellow-400/60';
-    if (util > 0) return 'bg-green-400/50';
+const getBackgroundColor = (util: number) => {
+    if (util > 1) return 'bg-red-700';
+    if (util > 0.9) return 'bg-red-500/80';
+    if (util > 0.7) return 'bg-yellow-400/80';
+    if (util > 0) return 'bg-green-500/80';
     return 'bg-transparent';
   };
 
-  const colorClass = getBackgroundColor(utilization);
-  const cappedUtilization = Math.min(utilization, 1);
+export default function DailyCapacityChart({ days, dailyUsage, dailyCap, lineId }: DailyCapacityChartProps) {
+    const { setNodeRef, isOver } = useDroppable({
+        id: `timeline-chart-droppable-${lineId}`,
+        data: {
+          type: 'timeline-row',
+          lineId: lineId,
+        },
+      });
 
-  return (
-    <TooltipProvider delayDuration={300}>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div className="absolute inset-0 z-0 overflow-hidden">
-            <div 
-              className={cn("absolute bottom-0 left-0 right-0 transition-all duration-300", colorClass)}
-              style={{ height: `${cappedUtilization * 100}%` }}
-            ></div>
-          </div>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p>Capacity: {capacity.toLocaleString()}</p>
-          <p>Assigned: {assigned.toLocaleString()}</p>
-          <p>Utilization: {Math.round(utilization * 100)}%</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
+    return (
+        <div ref={setNodeRef} className="grid h-full" style={{ gridTemplateColumns: `repeat(${days.length}, minmax(48px, 1fr))` }}>
+            {days.map(day => {
+                const dayKey = day.toISOString().split('T')[0];
+                const totalAssignedQuantity = dailyUsage[dayKey] || 0;
+                const utilization = dailyCap > 0 ? totalAssignedQuantity / dailyCap : 0;
+                
+                return (
+                    <div key={day.toISOString()} className="relative border-r flex items-end justify-center px-px pb-px">
+                       <div 
+                         className={cn(
+                            "w-full rounded-sm transition-all duration-300",
+                            getBackgroundColor(utilization)
+                         )}
+                         style={{ height: `${Math.min(utilization, 1) * 80}%`, minHeight: utilization > 0 ? '2px' : '0' }}
+                       ></div>
+                    </div>
+                )
+            })}
+        </div>
+    );
 }

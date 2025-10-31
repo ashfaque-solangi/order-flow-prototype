@@ -5,7 +5,6 @@ import { Assignment } from '@/lib/data';
 import { useDraggable } from '@dnd-kit/core';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import { useMemo } from 'react';
 
 type TimelineAssignmentProps = {
   assignment: Assignment & { lineId: string };
@@ -42,7 +41,7 @@ export default function TimelineAssignment({ assignment, color, isDragging = fal
                         dndIsDragging || isDragging ? "cursor-grabbing shadow-lg" : "cursor-grab",
                         color
                     )}>
-                        <p className="truncate">{assignment.order_num}</p>
+                        <p className="truncate">{assignment.order_num} ({assignment.quantity.toLocaleString()})</p>
                     </div>
                 </TooltipTrigger>
                 <TooltipContent>

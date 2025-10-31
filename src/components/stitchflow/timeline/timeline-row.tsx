@@ -4,8 +4,8 @@
 import { useMemo } from 'react';
 import { ProductionLine, Assignment } from '@/lib/data';
 import { differenceInDays, parseISO, isWithinInterval, areIntervalsOverlapping, startOfDay } from 'date-fns';
-import TimelineCell from './timeline-cell';
 import TimelineAssignment from './timeline-assignment';
+import DailyCapacityChart from './daily-capacity-indicator';
 
 type TimelineRowProps = {
   line: ProductionLine & { unitName: string };
@@ -14,7 +14,6 @@ type TimelineRowProps = {
   orderColorMap: Record<string, string>;
 };
 
-// Function to calculate layout of assignments into tracks to avoid overlaps
 function getAssignmentLayout(assignments: Assignment[]): Assignment[][] {
     const sortedAssignments = [...assignments].sort((a, b) => 
         parseISO(a.startDate).getTime() - parseISO(b.startDate).getTime()
@@ -74,9 +73,13 @@ export default function TimelineRow({ line, days, monthStart, orderColorMap }: T
     });
     return usage;
   }, [line.assignments, days]);
+  
+  const totalAssigned = useMemo(() => line.assignments.reduce((sum, a) => sum + a.quantity, 0), [line.assignments]);
 
   const assignmentTracks = useMemo(() => getAssignmentLayout(line.assignments), [line.assignments]);
-  const rowHeight = useMemo(() => Math.max(1, assignmentTracks.length) * 48, [assignmentTracks]); // 48px per track (h-12)
+  const trackHeight = 36;
+  const chartHeight = 24;
+  const rowHeight = useMemo(() => (Math.max(1, assignmentTracks.length) * trackHeight) + chartHeight + 8, [assignmentTracks]); // 8 for padding
 
 
   return (
@@ -88,6 +91,10 @@ export default function TimelineRow({ line, days, monthStart, orderColorMap }: T
         >
             <p className="font-semibold">{line.name}</p>
             <p className="text-xs text-muted-foreground">{line.unitName}</p>
+            <div className='mt-auto text-xs text-muted-foreground pt-1'>
+                <p>Cap: {line.dailyCap.toLocaleString()}/day</p>
+                <p>Assigned: {totalAssigned.toLocaleString()}</p>
+            </div>
         </div>
 
         {/* Daily Cells & Assignments Grid */}
@@ -95,28 +102,20 @@ export default function TimelineRow({ line, days, monthStart, orderColorMap }: T
             className="col-start-2 col-end-[-1] grid relative border-b"
             style={{
                 gridTemplateColumns: `repeat(${days.length}, minmax(48px, 1fr))`,
-                gridTemplateRows: `repeat(${assignmentTracks.length || 1}, 48px)`,
+                gridAutoRows: `${trackHeight}px`,
+                height: `${rowHeight}px`,
             }}
         >
-            {/* Daily Cells for droppable areas and capacity indicators */}
-            {days.map((day, dayIndex) => {
-                const dayKey = day.toISOString().split('T')[0];
-                const totalAssignedQuantity = dailyUsage[dayKey] || 0;
-                const utilization = line.dailyCap > 0 ? totalAssignedQuantity / line.dailyCap : 0;
-                
-                return (
-                     <div key={day.toISOString()} className="relative border-r" style={{gridColumn: dayIndex + 1, gridRow: `1 / -1`}}>
-                        <TimelineCell 
-                            lineId={line.id}
-                            date={day}
-                            utilization={utilization}
-                            assigned={Math.round(totalAssignedQuantity)}
-                            capacity={line.dailyCap}
-                        />
-                    </div>
-                );
-            })}
-        
+            {/* Daily Capacity Chart as background */}
+            <div className='absolute bottom-1 left-0 right-0 h-6' style={{gridColumn: `1 / -1`, gridRow: 1}}>
+                <DailyCapacityChart
+                    days={days}
+                    dailyUsage={dailyUsage}
+                    dailyCap={line.dailyCap}
+                    lineId={line.id}
+                />
+            </div>
+
             {/* Assignment Bars */}
             {assignmentTracks.map((track, trackIndex) => (
                 track.map((assignment) => {
@@ -144,11 +143,11 @@ export default function TimelineRow({ line, days, monthStart, orderColorMap }: T
                         return (
                             <div
                                 key={assignment.id}
-                                className="h-10 self-center z-10"
+                                className="h-8 self-center z-10"
                                 style={{
                                     gridColumn: `${clampedStart + 1} / span ${clampedDuration}`,
                                     gridRow: `${trackIndex + 1}`,
-                                    padding: '4px 2px'
+                                    padding: '2px'
                                 }}
                             >
                                <TimelineAssignment
