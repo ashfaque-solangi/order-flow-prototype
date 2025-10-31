@@ -50,7 +50,7 @@ This section displays a card for each production unit, giving a summary of its o
 
 -   **Unit Card**:
     -   Displays the total monthly capacity of the unit.
-    -   Shows a summary of `Planned` vs. `Remaining` capacity.
+    -   Shows a summary of `Planned` vs. `Remaining` capacity using badges.
     -   Contains a scrollable list of all orders assigned to that unit's lines.
     -   Each assigned order shows its quantity and can be unassigned by clicking the **'X'** button.
 -   **Drop Zone**: You can drag an order card from the "Available Orders" section and drop it onto a unit card to initiate the assignment process.
@@ -73,7 +73,7 @@ This is the core of the application—a detailed, interactive grid for visualizi
     -   The bar's length corresponds to the production duration.
     -   The label shows the order number and quantity.
     -   **Tentative Assignments** have a distinct striped pattern, making them easy to identify as placeholders.
-    -   Hovering over an assignment shows a tooltip with full details.
+    -   Hovering over an assignment shows a tooltip with full details, including a "Tentative" label if applicable.
 
 ---
 
@@ -82,14 +82,12 @@ This is the core of the application—a detailed, interactive grid for visualizi
 ### Assigning an Order
 
 1.  **Drag an Order**: Click and drag an `OrderCard` from the "Available Orders" section.
-2.  **Drop on a Target**:
-    -   Drop it onto a `UnitCard` to assign it to that unit.
-    -   Drop it directly onto a day cell in the `Timeline` to assign it to that specific line and start date.
+2.  **Drop on a Target**: Drop it onto a `UnitCard` in the "Production Units" section.
 3.  **Configure Assignment**: The "Assign Order" modal will appear.
     -   Select the production date range.
-    -   Add one or more production lines.
+    -   Add one or more production lines belonging to the target unit.
     -   Input the quantity to assign to each line. The system can auto-suggest quantities based on line capacity and the production duration.
-4.  **AI-Powered Validation**: Before confirming, the system uses an AI model to validate if the target lines have enough capacity for the requested quantity. If capacity is exceeded, the assignment will be blocked, and a reason will be provided.
+4.  **Capacity Validation**: Before confirming, the system validates if the target lines have enough capacity for the requested quantity within the selected date range. If capacity is exceeded, the assignment will be blocked, and a reason will be provided.
 5.  **Confirm**: Once confirmed, the assignment appears on the timeline, and the order's "Planned" and "Remaining" quantities are updated.
 
 ### Moving an Assignment
@@ -111,7 +109,7 @@ This is the core of the application—a detailed, interactive grid for visualizi
 
 1.  **Click the Button**: Click the "Tentative Order" button in the header.
 2.  **Fill the Form**: A modal will appear. Fill in the required details like Order Number, Style, Quantity, and ETD. The customer is pre-filled as "Planning Dept" but can be changed.
-3.  **Create**: Upon creation, the new tentative order appears in the "Available Orders" section, clearly marked with a "Tentative" badge and a dashed border. It can be assigned to the timeline just like a regular order.
+3.  **Create**: Upon creation, the new tentative order appears in the "Available Orders" section, clearly marked with a "Tentative" badge and a dashed border. It can be assigned to the timeline just like a regular order, where it will appear with a distinct striped pattern.
 
 ### Filtering Orders
 
