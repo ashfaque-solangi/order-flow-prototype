@@ -17,7 +17,7 @@ type TimelineRowProps = {
 
 function getAssignmentLayout(assignments: Assignment[]): Assignment[][] {
     const sortedAssignments = [...assignments].sort((a, b) => 
-        parseISO(a.startDate).getTime() - parseISO(b.startDate).getTime()
+        startOfDay(parseISO(a.startDate)).getTime() - startOfDay(parseISO(b.startDate)).getTime()
     );
 
     const tracks: Assignment[][] = [];

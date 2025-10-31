@@ -1,11 +1,12 @@
 
+
 'use client';
 
 import { Assignment } from '@/lib/data';
 import { useDraggable } from '@dnd-kit/core';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import { parseISO, differenceInDays } from 'date-fns';
+import { parseISO, differenceInDays, startOfDay } from 'date-fns';
 
 
 type TimelineAssignmentProps = {
@@ -43,14 +44,14 @@ export default function TimelineAssignment({ assignment, isDragging = false }: T
     const isGhost = !!active && active.id === `assignment-${assignment.id}` && !isDragging;
     
     const isTentative = !!assignment.tentative;
-    const duration = differenceInDays(parseISO(assignment.endDate), parseISO(assignment.startDate)) + 1;
+    const duration = differenceInDays(startOfDay(parseISO(assignment.endDate)), startOfDay(parseISO(assignment.startDate))) + 1;
     const showShortLabel = duration < 2;
 
     const color = isTentative ? 'bg-gray-400' : 'bg-primary';
 
 
   return (
-    <div ref={setNodeRef} style={style} {...listeners} {...attributes} className={cn("h-full w-full", isGhost && "opacity-50")}>
+    <div ref={setNodeRef} style={style} {...listeners} {...attributes} className={cn("h-full w-full", isGhost && "opacity-0")}>
         <TooltipProvider>
             <Tooltip>
                 <TooltipTrigger asChild>

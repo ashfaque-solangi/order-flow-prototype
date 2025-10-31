@@ -1,3 +1,5 @@
+
+
 'use client';
 
 import {
@@ -18,7 +20,7 @@ import { Trash2 } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { CalendarIcon } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, startOfDay } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { DateRange } from 'react-day-picker';
 
@@ -52,8 +54,8 @@ export default function FiltersModal({ isOpen, onClose, filters, setFilters, uni
   const handleDateRangeChange = (range: DateRange | undefined) => {
     setFilters(prev => ({
         ...prev,
-        order_date_from: range?.from,
-        order_date_to: range?.to,
+        order_date_from: range?.from ? startOfDay(range.from) : undefined,
+        order_date_to: range?.to ? startOfDay(range.to) : undefined,
     }))
   };
 

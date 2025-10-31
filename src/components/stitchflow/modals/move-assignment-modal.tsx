@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -15,7 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Assignment, ProductionLine } from '@/lib/data';
 import { DateRange } from 'react-day-picker';
-import { addDays, format, differenceInDays, parseISO, isWithinInterval } from 'date-fns';
+import { addDays, format, differenceInDays, parseISO, isWithinInterval, startOfDay } from 'date-fns';
 import { Loader2, AlertCircle } from 'lucide-react';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import CapacityBar from '../capacity-bar';
@@ -59,7 +60,7 @@ export default function MoveAssignmentModal({ isOpen, onClose, assignmentState, 
   const sourceLine = allLines.find(l => l.id === sourceLineId);
   const targetLine = allLines.find(l => l.id === targetLineId);
 
-  const duration = differenceInDays(parseISO(assignment.endDate), parseISO(assignment.startDate)) + 1;
+  const duration = differenceInDays(startOfDay(parseISO(assignment.endDate)), startOfDay(parseISO(assignment.startDate))) + 1;
   const newEndDate = addDays(newStartDate, duration - 1);
 
   const { availableCapacity, targetLineCapacity, targetLineAssigned } = useMemo(() => {
@@ -70,9 +71,9 @@ export default function MoveAssignmentModal({ isOpen, onClose, assignmentState, 
     const assignedDuringDrop = targetLine.assignments
         .filter(a => a.id !== assignment.id)
         .reduce((sum, a) => {
-        const aStart = parseISO(a.startDate);
-        const aEnd = parseISO(a.endDate);
-        if(isWithinInterval(newStartDate, {start: aStart, end: aEnd}) || isWithinInterval(newEndDate, {start: aStart, end: aEnd})) {
+        const aStart = startOfDay(parseISO(a.startDate));
+        const aEnd = startOfDay(parseISO(a.endDate));
+        if(isWithinInterval(startOfDay(newStartDate), {start: aStart, end: aEnd}) || isWithinInterval(startOfDay(newEndDate), {start: aStart, end: aEnd})) {
             const assignmentDuration = differenceInDays(aEnd, aStart) + 1;
             return sum + (a.quantity / assignmentDuration) * Math.min(duration, assignmentDuration);
         }

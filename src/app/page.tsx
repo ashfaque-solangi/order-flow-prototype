@@ -180,9 +180,9 @@ export default function StitchFlowPage() {
         }
         
         const existingAssignmentsOnLine = targetLine.assignments.reduce((sum, a) => {
-            const aStart = parseISO(a.startDate);
-            const aEnd = parseISO(a.endDate);
-            if(isWithinInterval(dates.from, {start: aStart, end: aEnd}) || isWithinInterval(dates.to, {start: aStart, end: aEnd})) {
+            const aStart = startOfDay(parseISO(a.startDate));
+            const aEnd = startOfDay(parseISO(a.endDate));
+            if(isWithinInterval(startOfDay(dates.from), {start: aStart, end: aEnd}) || isWithinInterval(startOfDay(dates.to), {start: aStart, end: aEnd})) {
                 const assignmentDuration = differenceInDays(aEnd, aStart) + 1;
                 return sum + (a.quantity / assignmentDuration);
             }
@@ -377,9 +377,9 @@ export default function StitchFlowPage() {
     const assignedOnTargetDuringDrop = targetLine.assignments
         .filter(a => a.id !== assignment.id) // Exclude the assignment being moved
         .reduce((sum, a) => {
-            const aStart = parseISO(a.startDate);
-            const aEnd = parseISO(a.endDate);
-            if(isWithinInterval(newStartDate, {start: aStart, end: aEnd}) || isWithinInterval(newEndDate, {start: aStart, end: aEnd})) {
+            const aStart = startOfDay(parseISO(a.startDate));
+            const aEnd = startOfDay(parseISO(a.endDate));
+            if(isWithinInterval(startOfDay(newStartDate), {start: aStart, end: aEnd}) || isWithinInterval(startOfDay(newEndDate), {start: aStart, end: aEnd})) {
                 const assignmentDuration = differenceInDays(aEnd, aStart) + 1;
                 return sum + (a.quantity / assignmentDuration);
             }
@@ -456,14 +456,14 @@ export default function StitchFlowPage() {
     return orders.filter(order => {
       if (filters.customer.length > 0 && !filters.customer.includes(order.customer)) return false;
       if (filters.oc.length > 0 && !filters.oc.includes(order.order_num)) return false;
-      if (filters.etd && format(new Date(order.etd_date), 'yyyy-MM-dd') !== format(filters.etd, 'yyyy-MM-dd')) return false;
+      if (filters.etd && format(startOfDay(new Date(order.etd_date)), 'yyyy-MM-dd') !== format(startOfDay(filters.etd), 'yyyy-MM-dd')) return false;
       if (filters.style.length > 0 && !filters.style.includes(order.style)) return false;
       if (filters.status.length > 0 && !filters.status.includes(order.status)) return false;
       if (filters.oc_search && !order.order_num.toLowerCase().includes(filters.oc_search.toLowerCase())) return false;
       if (filters.quantity_min !== '' && order.qty.total < filters.quantity_min) return false;
       if (filters.quantity_max !== '' && order.qty.total > filters.quantity_max) return false;
-      if (filters.order_date_from && new Date(order.order_date) < filters.order_date_from) return false;
-      if (filters.order_date_to && new Date(order.order_date) > filters.order_date_to) return false;
+      if (filters.order_date_from && startOfDay(new Date(order.order_date)) < startOfDay(filters.order_date_from)) return false;
+      if (filters.order_date_to && startOfDay(new Date(order.order_date)) > startOfDay(filters.order_date_to)) return false;
       
       return true;
     });
@@ -562,8 +562,8 @@ export default function StitchFlowPage() {
             <OrderCard order={activeItem} isDragging />
           ) : (
              <div style={{
-                width: `${Math.max(40, (differenceInDays(parseISO(activeItem.endDate), parseISO(activeItem.startDate)) + 1) * 40)}px`,
-                height: '40px'
+                width: `${Math.max(48, (differenceInDays(startOfDay(parseISO(activeItem.endDate)), startOfDay(parseISO(activeItem.startDate))) + 1) * 48)}px`,
+                height: '36px'
             }}>
                 <TimelineAssignment
                     assignment={activeItem as Assignment & { lineId: string }}
