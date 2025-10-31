@@ -65,7 +65,7 @@ export default function TimelineSection({ units, selectedMonth, allLines }: Time
         <div className="relative">
           <div className="grid items-start" style={{ gridTemplateColumns: `200px minmax(0, 1fr)` }}>
             {/* Header */}
-            <div className="sticky top-0 z-30 font-semibold text-sm text-muted-foreground pl-2 bg-card border-r border-b h-16 flex items-end pb-1">Line / Unit / Capacity</div>
+            <div className="sticky top-0 z-30 font-semibold text-sm text-muted-foreground pl-2 bg-card border-r border-b h-16 flex items-end pb-1">Line Details</div>
             <div className="sticky top-0 z-30 bg-card grid" style={{gridTemplateColumns: `repeat(${days.length}, minmax(48px, 1fr))`}}>
                 {days.map(day => (
                 <div key={day.toISOString()} className="text-center font-semibold text-sm h-16 flex flex-col justify-end border-r border-b last:border-r-0">
