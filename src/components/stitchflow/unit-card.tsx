@@ -3,14 +3,13 @@
 
 import { useMemo } from 'react';
 import { Unit } from '@/lib/data';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { X, Factory, Workflow } from 'lucide-react';
+import { X, Factory } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
 import { useDroppable } from '@dnd-kit/core';
 import { cn } from '@/lib/utils';
-import CapacityBar from './capacity-bar';
 
 type UnitCardProps = {
   unit: Unit;
@@ -29,7 +28,7 @@ export default function UnitCard({ unit, onUnassign }: UnitCardProps) {
   const assignedOrders = useMemo(() => {
     return unit.lines.flatMap(line => 
       line.assignments.map(a => ({...a, lineId: line.id, lineName: line.name }))
-    );
+    ).sort((a,b) => a.order_num.localeCompare(b.order_num));
   }, [unit]);
 
   const { totalCapacity, totalAssigned } = useMemo(() => {
@@ -48,53 +47,49 @@ export default function UnitCard({ unit, onUnassign }: UnitCardProps) {
     <Card 
       ref={setNodeRef}
       className={cn(
-        "w-[420px] shrink-0 flex flex-col transition-all",
+        "w-[300px] shrink-0 flex flex-col transition-all",
         isOver && "ring-2 ring-primary ring-offset-2 scale-105"
       )}
     >
-      <CardHeader>
-        <div className="flex items-center justify-between">
-            <CardTitle className="text-lg flex items-center gap-2">
-                <Factory className="w-5 h-5 text-primary" />
-                {unit.name}
-            </CardTitle>
-            <Badge variant="secondary">{unit.lines.length} Lines</Badge>
-        </div>
-        <CardDescription>Monthly Capacity Utilization</CardDescription>
+      <CardHeader className="flex-row justify-between items-center py-2">
+        <CardTitle className="text-base font-semibold">{unit.name}</CardTitle>
+        <Badge variant="secondary">Unit Cap: {totalCapacity.toLocaleString()}</Badge>
       </CardHeader>
-      <CardContent className="flex-1 flex flex-col gap-4">
-        <div>
-          <CapacityBar total={totalCapacity} used={totalAssigned} />
-        </div>
-
-        <div className="flex-1 flex flex-col min-h-0">
-          <h4 className="font-semibold text-sm mb-2 flex items-center gap-2"><Workflow className="w-4 h-4"/> Assigned Orders</h4>
-          <ScrollArea className="flex-1 pr-3 -mr-3">
-             <div className="space-y-2">
-            {assignedOrders.length > 0 ? (
-              assignedOrders.map(a => (
-                <div key={a.id} className="flex items-center justify-between text-sm p-2 rounded-md bg-secondary/50">
-                  <div className="flex flex-col">
-                    <span className="font-medium">{a.order_num}</span>
-                    <span className="text-xs text-muted-foreground">Qty: {a.quantity.toLocaleString()} on {a.lineName}</span>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                    onClick={() => onUnassign(a.orderId, a.id, a.lineId)}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              ))
-            ) : (
-              <p className="text-sm text-muted-foreground text-center py-4">No orders assigned.</p>
-            )}
-          </div>
-          </ScrollArea>
+      <CardContent className="py-3 text-sm">
+        <div className="flex justify-between items-center">
+            <span className="text-muted-foreground">Planned</span>
+            <Badge variant="secondary" className="font-bold text-base">{totalAssigned.toLocaleString()}</Badge>
+            <span className="text-muted-foreground">Remaining</span>
+            <Badge variant="destructive" className="font-bold text-base">{(totalCapacity - totalAssigned).toLocaleString()}</Badge>
         </div>
       </CardContent>
+      <CardFooter className="py-2 flex-1 flex flex-col min-h-0">
+        <ScrollArea className="w-full h-full pr-3 -mr-3">
+          <div className="space-y-2">
+          {assignedOrders.length > 0 ? (
+            assignedOrders.map(a => (
+              <div key={a.id} className="flex items-center justify-between text-sm p-2 rounded-md bg-slate-100 border shadow-sm">
+                <div className="flex flex-col truncate w-full">
+                  <span className="font-medium truncate" title={a.order_num}>{a.order_num}</span>
+                  <span className="text-xs text-muted-foreground">{a.lineName}</span>
+                </div>
+                <Badge className="mx-2 shrink-0">{a.quantity.toLocaleString()}</Badge>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                  onClick={() => onUnassign(a.orderId, a.id, a.lineId)}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            ))
+          ) : (
+            <p className="text-sm text-muted-foreground text-center py-4">No orders assigned.</p>
+          )}
+        </div>
+        </ScrollArea>
+      </CardFooter>
     </Card>
   );
 }

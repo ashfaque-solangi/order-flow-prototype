@@ -1,14 +1,13 @@
 
-
 'use client';
 
 import { Order } from '@/lib/data';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { Tag, Users, Calendar, Package, Hash, CheckCircle, CircleDotDashed } from 'lucide-react';
+import { Users, Calendar, Package, Hash, Tag, Move } from 'lucide-react';
 import { useDraggable } from '@dnd-kit/core';
 import { cn } from '@/lib/utils';
+import { format, parseISO } from 'date-fns';
 
 type OrderCardProps = {
   order: Order;
@@ -35,63 +34,50 @@ export default function OrderCard({ order, isDragging }: OrderCardProps) {
       ref={isAssignable ? setNodeRef : null}
       style={style}
       className={cn(
-        "w-[320px] shrink-0 flex flex-col transition-shadow hover:shadow-lg",
+        "w-[280px] shrink-0 flex flex-col transition-shadow hover:shadow-lg",
         (dndIsDragging || isDragging) && "shadow-2xl z-50 scale-105",
         !isAssignable && "opacity-60 bg-slate-50",
-        isAssignable ? "cursor-grab touch-none" : "cursor-not-allowed",
-        order.tentative && "border-dashed border-amber-500/80"
+        order.tentative && "border-dashed border-amber-500/80",
+        "group"
       )}
-      {...(isAssignable ? attributes : {})}
-      {...(isAssignable ? listeners : {})}
     >
-      <CardHeader className="pb-3">
-        <div className="flex justify-between items-start">
-            <div>
-                <CardTitle className="text-lg flex items-center gap-2">
-                    <Package className="w-5 h-5 text-primary" />
-                    {order.order_num}
-                </CardTitle>
-                <CardDescription className="flex items-center gap-2 mt-1">
-                    <Users className="w-3.5 h-3.5" />
-                    {order.customer}
-                </CardDescription>
-            </div>
-            {order.tentative && <Badge variant="outline" className="border-amber-500 text-amber-600 bg-amber-50">Tentative</Badge>}
-        </div>
+      <CardHeader className="flex-row justify-between items-center py-2">
+        <CardTitle className="text-base font-semibold truncate">{order.order_num}</CardTitle>
+        {order.tentative && <Badge variant="outline" className="border-amber-500 text-amber-600 bg-amber-50 text-xs">Tentative</Badge>}
       </CardHeader>
-      <CardContent className="flex-1 text-sm pt-3 flex flex-col">
-        <div className="grid grid-cols-2 gap-y-3 gap-x-2 text-muted-foreground">
-            <div className="flex items-center gap-2">
-                <Tag className="w-4 h-4" />
-                <span>{order.style}</span>
-            </div>
-             <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4" />
-                <span>ETD: {order.etd_date}</span>
-            </div>
+      <CardContent className="py-2 text-sm space-y-1">
+        <div className="flex justify-between items-center">
+            <span className="text-muted-foreground">Customer</span>
+            <span className="font-medium truncate">{order.customer}</span>
         </div>
-        <Separator className="my-4" />
-        <div className="grid grid-cols-3 gap-2 text-center">
-            <div>
-                <Badge variant="secondary" className="w-full justify-center py-1">
-                     <Hash className="w-3.5 h-3.5 mr-1.5"/> Total
-                </Badge>
-                <p className="font-bold text-lg mt-1">{order.qty.total.toLocaleString()}</p>
-            </div>
-            <div>
-                <Badge variant="secondary" className="w-full justify-center py-1">
-                    <CheckCircle className="w-3.5 h-3.5 mr-1.5"/> Assigned
-                </Badge>
-                <p className="font-bold text-lg mt-1">{order.qty.assigned.toLocaleString()}</p>
-            </div>
-            <div>
-                <Badge variant="secondary" className="w-full justify-center py-1">
-                    <CircleDotDashed className="w-3.5 h-3.5 mr-1.5"/> Remaining
-                </Badge>
-                <p className="font-bold text-lg mt-1 text-primary">{order.qty.remaining.toLocaleString()}</p>
-            </div>
+        <div className="flex justify-between items-center">
+            <span className="text-muted-foreground">Style</span>
+            <span className="font-medium">{order.style}</span>
+        </div>
+        <div className="flex justify-between items-center">
+            <span className="text-muted-foreground">Order Qty</span>
+            <span className="font-medium">{order.qty.total.toLocaleString()}</span>
+        </div>
+        <div className="flex justify-between items-center">
+            <span className="text-muted-foreground">ETD</span>
+            <span className="font-medium">{format(parseISO(order.etd_date), 'M/d/yyyy')}</span>
         </div>
       </CardContent>
+      <CardFooter className="py-2 flex justify-between items-center text-xs mt-auto">
+        <div className="text-muted-foreground">
+          Planned: <Badge variant="secondary" className="font-bold">{order.qty.assigned.toLocaleString()}</Badge>
+        </div>
+        <div className="text-muted-foreground">
+          Remaining: <Badge variant="destructive" className="font-bold">{order.qty.remaining.toLocaleString()}</Badge>
+        </div>
+        <div 
+          className={cn("drag-indicator text-muted-foreground/50", isAssignable ? "cursor-grab touch-none" : "cursor-not-allowed")}
+          {...(isAssignable ? attributes : {})}
+          {...(isAssignable ? listeners : {})}
+        >
+          <Move className="w-4 h-4"/>
+        </div>
+      </CardFooter>
     </Card>
   );
 }
