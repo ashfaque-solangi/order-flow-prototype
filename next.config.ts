@@ -1,7 +1,4 @@
 import type {NextConfig} from 'next';
-import { config } from 'dotenv';
-
-config(); // Load environment variables from .env file
 
 const nextConfig: NextConfig = {
   /* config options here */
@@ -33,7 +30,6 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  serverComponentsExternalPackages: ['@genkit-ai/google-genai'],
 };
 
 export default nextConfig;

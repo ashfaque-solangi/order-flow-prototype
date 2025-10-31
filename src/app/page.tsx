@@ -11,7 +11,6 @@ import MoveAssignmentModal from '@/components/stitchflow/modals/move-assignment-
 import TentativeOrderModal from '@/components/stitchflow/modals/tentative-order-modal';
 import FiltersModal from '@/components/stitchflow/modals/filters-modal';
 import { useToast } from '@/hooks/use-toast';
-import { validateCapacity } from '@/ai/flows/capacity-validation';
 import { format, differenceInDays, isWithinInterval, startOfDay, parseISO, areIntervalsOverlapping } from 'date-fns';
 import { DragEndEvent, DragStartEvent, DragOverlay } from '@dnd-kit/core';
 import type { ProductionLine, Assignment } from '@/lib/data';
@@ -181,7 +180,7 @@ export default function StitchFlowPage() {
           continue;
         }
         
-        const existingAssignmentsOnLine = targetLine.assignments.reduce((sum, a) => {
+        const assignedCapacityOnLine = targetLine.assignments.reduce((sum, a) => {
             const existingInterval = {
                 start: startOfDay(parseISO(a.startDate)),
                 end: startOfDay(parseISO(a.endDate)),
@@ -193,35 +192,16 @@ export default function StitchFlowPage() {
             return sum;
         }, 0) * productionDays;
         
-        const validationInput = {
-          orderId,
-          unitId: unitId,
-          quantity: assignment.quantity,
-          etdDate: order.etd_date,
-          dailyCap: targetLine.dailyCap * productionDays,
-          assignedCapacity: existingAssignmentsOnLine,
-        };
-    
-        try {
-            const validationResult = await validateCapacity(validationInput);
+        const availableCapacity = (targetLine.dailyCap * productionDays) - assignedCapacityOnLine;
 
-            if (!validationResult.isValid) {
-                const message = validationResult.reason || `The requested quantity of ${assignment.quantity.toLocaleString()} exceeds the remaining capacity.`;
-                toast({
-                    variant: 'destructive',
-                    title: `Capacity Validation Failed for ${targetLine.name}`,
-                    description: message,
-                });
-                return { success: false, message: message };
-            }
-        } catch (error) {
-            console.error('AI Validation Error:', error);
+        if (assignment.quantity > availableCapacity) {
+            const message = `The requested quantity of ${assignment.quantity.toLocaleString()} exceeds the remaining capacity of ${Math.round(availableCapacity).toLocaleString()}.`;
             toast({
                 variant: 'destructive',
-                title: 'Error',
-                description: 'An unexpected error occurred during AI validation.',
+                title: `Capacity Validation Failed for ${targetLine.name}`,
+                description: message,
             });
-            return { success: false, message: 'An unexpected error occurred.' };
+            return { success: false, message: message };
         }
     }
 
@@ -580,5 +560,3 @@ export default function StitchFlowPage() {
     </ClientOnlyDndProvider>
   );
 }
-
-    
