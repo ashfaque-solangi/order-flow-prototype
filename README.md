@@ -110,7 +110,7 @@ This is the core interactive grid for visualizing and managing the production sc
 
 ---
 
-## 2. Key Functionalities & Scenarios
+## 2. Key Functionalities & Modals
 
 ### 2.1. Drag-and-Drop System (`@dnd-kit/core`)
 
@@ -122,7 +122,7 @@ The drag-and-drop functionality is central to the user experience.
     *   `onDragStart`: Identifies whether an `OrderCard` or a `TimelineAssignment` is being dragged and stores its data.
     *   `onDragEnd`: Determines the outcome of the drop.
         *   **Order to Unit**: If an `OrderCard` is dropped on a `UnitCard`, it opens the `<AssignOrderModal />`.
-        *   **Assignment Move**: If a `TimelineAssignment` is dropped on a `<TimelineCell>`, it opens the `<MoveAssignmentModal />`.
+        *   **Assignment Move**: If a `TimelineAssignment` is dropped on a `<TimelineCell />`, it opens the `<MoveAssignmentModal />`.
 
 ### 2.2. Calendars (`react-day-picker` & `date-fns`)
 
@@ -134,49 +134,141 @@ Calendars are used extensively for date selection and navigation.
     *   **Month Navigation**: Used in the header to change the visible month on the timeline. A `captionLayout="dropdown-buttons"` is used for easy year/month selection.
     *   **Date Range Selection**: Used in the `<AssignOrderModal />` and `<FiltersModal />` to select a `from` and `to` date. The calendar is shown with `mode="range"` and `numberOfMonths={2}` for a better user experience.
 
-### 2.3. Assigning an Order
+### 2.3. Modal: Assign Order (`<AssignOrderModal />`)
 
-1.  **Drag an Order**: User drags an `OrderCard` from the "Available Orders" section.
-2.  **Drop on a Unit**: User drops it onto a `UnitCard`.
-3.  **Configure Assignment (`<AssignOrderModal />`)**: The "Assign Order" modal appears.
-    *   The modal title clearly states which order is being assigned to which unit.
-    *   **Date Selection**: The user selects a production date range using a `react-day-picker` calendar.
-    *   **Line Assignment**: The user adds one or more production lines belonging to the target unit. For each line, a quantity is entered. The system can auto-suggest quantities based on line capacity.
-4.  **Capacity Validation**: Before confirming, the system performs a **local calculation**:
-    *   It determines the total available capacity on the target lines for the selected date range.
-    *   It subtracts any capacity already consumed by other assignments within that same period.
-    *   If the requested quantity exceeds the available capacity, the assignment is blocked, and an error message is displayed in the modal.
-5.  **Confirm**: On success, the assignment appears on the timeline, and the order's `planned` and `remaining` quantities are updated.
+This modal is the primary interface for creating a new production assignment.
 
-### 2.4. Moving an Assignment
+*   **Trigger**: Dragging an `OrderCard` and dropping it onto a `UnitCard`.
+*   **Content**:
+    *   **Header**: Displays "Assign Order: [Order Number] to [Unit Name]" and shows the order's remaining assignable quantity.
+    *   **Step 1: Production Dates**:
+        *   A `Popover` containing a `Calendar` from `react-day-picker`.
+        *   The calendar must be in `mode="range"` and show `numberOfMonths={2}`.
+        *   The user selects a `from` and `to` date for the production run.
+    *   **Step 2: Line Assignments**:
+        *   A section where users can add one or more production lines from the target unit.
+        *   An "Add Line" button adds a new assignment row.
+        *   Each row contains:
+            *   A `Select` dropdown to choose a specific `ProductionLine` from the target unit.
+            *   An `Input` field to enter the `quantity` for that line.
+            *   A `CapacityBar` to visualize the line's monthly capacity utilization after this assignment.
+            *   A `Trash2` icon button to remove that specific line assignment.
+    *   **Summary Section**:
+        *   Displays the total `Production Days` calculated from the date range.
+        *   Shows the `Total to Assign` (sum of quantities from all line inputs).
+        *   Shows the `Order Qty After Assign` (order's remaining quantity minus the total to assign). This value turns red if negative.
+    *   **Footer**: Contains "Cancel" and "Confirm Assignment" buttons. The confirm button is disabled if no lines are added or the total quantity is zero.
 
-1.  **Drag an Assignment**: User drags an existing assignment bar on the timeline.
-2.  **Drop on a New Cell**: User drops the assignment onto a new day in the same or a different production line.
-3.  **Confirm the Move (`<MoveAssignmentModal />`)**: The "Move Assignment" modal appears.
-    *   It summarizes the change (from/to line, original/new dates).
-    *   The user can adjust the quantity being moved (allowing for partial moves).
-    *   Capacity is validated on the target line for the new date range. The move is prevented if there isn't enough capacity.
-4.  **Confirm**: The timeline is updated to reflect the new schedule.
+*   **Functional Scenarios**:
+    *   **Scenario 1: Successful Assignment**:
+        1.  User selects a valid date range.
+        2.  User adds one or more lines and enters quantities for each.
+        3.  The total assigned quantity is less than or equal to the order's remaining quantity.
+        4.  The entered quantity for each line is within the available capacity of that line for the selected date range.
+        5.  User clicks "Confirm Assignment".
+        6.  The modal closes, the assignment appears on the timeline, the order's `planned` and `remaining` quantities are updated, and a success `Toast` is shown.
+    *   **Scenario 2: Capacity Exceeded**:
+        1.  User enters a quantity for a line that exceeds its available capacity for the chosen dates.
+        2.  User clicks "Confirm Assignment".
+        3.  The assignment is blocked. An `Alert` appears inside the modal explaining which line is over capacity and by how much. The modal remains open for the user to correct the quantity.
+    *   **Scenario 3: Over-assigning Order Quantity**:
+        1.  The user enters quantities across lines that sum up to more than the order's `remaining` quantity.
+        2.  The "Order Qty After Assign" summary turns red.
+        3.  If the user clicks "Confirm", an `Alert` is displayed in the modal, and the assignment is blocked.
+    *   **Scenario 4: Incomplete Form**:
+        1.  User clicks "Confirm" without selecting dates or adding any lines.
+        2.  An `Alert` is displayed, prompting the user to complete the required fields.
 
-### 2.5. Unassigning an Order
+### 2.4. Modal: Move Assignment (`<MoveAssignmentModal />`)
 
-*   **From the Unit Card**: In the "Production Units" section, find the assigned order in the list on the `UnitCard`.
-*   **Click 'X'**: Click the 'X' button next to the order to unassign it.
-*   **Confirmation**: A `Toast` notification confirms the action. The assignment is removed from the timeline, and the order's quantity is returned to the `remaining` pool.
+This modal handles the logic for moving or splitting an existing assignment on the timeline.
 
-### 2.6. Creating a Tentative Order (`<TentativeOrderModal />`)
+*   **Trigger**: Dragging a `TimelineAssignment` bar and dropping it onto a different `TimelineCell`.
+*   **Content**:
+    *   **Header**: Displays "Move Assignment: [Order Number]".
+    *   **Summary Section**: A grid showing:
+        *   From Line: `sourceLine.name`
+        *   To Line: `targetLine.name`
+        *   Original Dates: `startDate` to `endDate`
+        *   New Dates: `newStartDate` to `newEndDate`
+    *   **Quantity to Move**:
+        *   An `Input` field pre-filled with the assignment's total quantity. The user can edit this to perform a partial move (split). The input has a `max` attribute set to the original quantity.
+    *   **Capacity Visualization**:
+        *   A `CapacityBar` showing the capacity utilization on the `targetLine` for the new date range, including the quantity being moved.
+    *   **Footer**: "Cancel" and "Confirm Move" buttons.
 
-1.  **Click the Button**: User clicks the "Tentative Order" button in the header.
-2.  **Fill the Form**: A modal appears. The user fills in details like Order Number, Style, Quantity, and ETD.
-3.  **Create**: Upon creation, the new tentative order appears in the "Available Orders" section, clearly marked with a "Tentative" badge and a dashed border. It can be assigned to the timeline just like a regular order.
+*   **Functional Scenarios**:
+    *   **Scenario 1: Full Move Successful**:
+        1.  User drags an assignment to a new location with sufficient capacity.
+        2.  The modal opens, showing the full quantity to be moved.
+        3.  User clicks "Confirm Move".
+        4.  The assignment is removed from the old location and appears in the new one. A success `Toast` is displayed.
+    *   **Scenario 2: Partial Move (Split)**:
+        1.  User drags an assignment.
+        2.  In the modal, the user reduces the "Quantity to Move".
+        3.  User clicks "Confirm Move".
+        4.  The original assignment on the timeline is updated with the reduced quantity. A new assignment appears in the target location with the "split" quantity.
+    *   **Scenario 3: Move Fails (Insufficient Capacity)**:
+        1.  User attempts to move an assignment to a location with insufficient capacity.
+        2.  The `CapacityBar` in the modal turns red/yellow, and the available capacity text indicates a deficit.
+        3.  User clicks "Confirm Move".
+        4.  The move is blocked. An `Alert` appears in the modal explaining the capacity issue. The modal remains open for correction.
+    *   **Scenario 4: Invalid Quantity**:
+        1.  User enters a quantity greater than the original assignment's quantity or less than or equal to zero.
+        2.  An `Alert` is displayed, and the "Confirm Move" button is disabled until a valid quantity is entered.
 
-### 2.7. Filtering Orders (`<FiltersModal />`)
+### 2.5. Modal: Create Tentative Order (`<TentativeOrderModal />`)
 
-*   **Quick Filters**: Header dropdowns for fast filtering.
-*   **Advanced Filters**: The "More Filters" modal allows for combined filtering by:
-    *   OC number (text contains search).
-    *   Quantity range (min/max).
-    *   Order date range.
-    *   Style (multi-select checkbox).
-    *   Status (multi-select checkbox).
-*   **Clearing Filters**: A button in the modal resets all applied filters to their default state.
+This modal allows for the quick creation of placeholder orders for planning purposes.
+
+*   **Trigger**: Clicking the "Tentative Order" button in the `<AppHeader />`.
+*   **Content**:
+    *   **Header**: "Create Tentative Order".
+    *   **Form Fields**:
+        *   `order_num`: Text input.
+        *   `customer`: Text input, defaults to "Planning Dept".
+        *   `style`: Text input.
+        *   `qty`: Number input.
+        *   `etd_date`: Date input.
+    *   **Footer**: "Cancel" and "Create Order" buttons.
+
+*   **Functional Scenarios**:
+    *   **Scenario 1: Successful Creation**:
+        1.  User fills out all required fields with valid data.
+        2.  User clicks "Create Order".
+        3.  The modal closes. A new `Order` object is created with `tentative: true`.
+        4.  The new order card appears in the "Available Orders" section, styled with a dashed border and a "Tentative" badge.
+    *   **Scenario 2: Invalid Data**:
+        1.  User leaves a required field blank or enters invalid data (e.g., quantity of 0).
+        2.  Form validation messages appear below the respective fields. The submission is blocked until all fields are valid.
+
+### 2.6. Modal: Advanced Filters (`<FiltersModal />`)
+
+This modal provides a powerful interface for filtering the "Available Orders" list based on multiple criteria.
+
+*   **Trigger**: Clicking the "More Filters" button in the `<AppHeader />`.
+*   **Content**:
+    *   **Header**: "More Filters".
+    *   **Layout**: A three-column grid.
+    *   **Column 1: Details**:
+        *   `OC Number Contains`: A text input for partial string matching.
+        *   `Quantity Range`: Two number inputs for `min` and `max` quantity.
+        *   `Order Date`: A `Popover` with a `react-day-picker` `Calendar` in `range` mode.
+    *   **Column 2: By Style**:
+        *   A `ScrollArea` containing a list of `Checkbox` components for every unique style. Users can select multiple styles.
+    *   **Column 3: By Status**:
+        *   A `ScrollArea` containing a list of `Checkbox` components for each status type (`Planned`, `Partially Assigned`, etc.).
+    *   **Footer**:
+        *   "Clear All Filters" button: Resets all filters in the modal and in the header to their default state.
+        *   "Apply & Close" button: Closes the modal. The filters are applied automatically as they are changed.
+
+*   **Functional Scenarios**:
+    *   **Scenario 1: Applying Filters**:
+        1.  User opens the modal and interacts with any filter control (e.g., types in a quantity range, checks a style box).
+        2.  The application state for filters is updated instantly. The "Available Orders" section re-renders in the background to show only orders that match all active criteria.
+    *   **Scenario 2: Clearing Filters**:
+        1.  User clicks "Clear All Filters".
+        2.  All filter states are reset. The "Available Orders" section updates to show all available orders.
+    *   **Scenario 3: Closing the Modal**:
+        1.  User clicks "Apply & Close" or the 'X' button.
+        2.  The modal closes. The last applied filter state remains active.
