@@ -108,6 +108,36 @@ This is the core interactive grid for visualizing and managing the production sc
     *   **Draggable Element**: Each assignment bar is draggable using `@dnd-kit/core`, allowing users to move it.
     *   **Droppable Cells (`<TimelineCell />`)**: Each day cell within a timeline row is a droppable zone that accepts dragged assignments, enabling moves.
 
+#### **Rendering Logic: How Assignment Bars are Placed**
+
+The placement and length of the assignment bars are critical to the timeline's functionality. This is achieved through a combination of date calculations and CSS Grid properties.
+
+1.  **Grid Structure**: The main timeline area (excluding the header column) is a single CSS Grid container.
+    *   Its columns are defined by `gridTemplateColumns: repeat(${days.length}, minmax(48px, 1fr))`. This creates one column for each day of the selected month.
+    *   Its rows are defined by `gridAutoRows: ${trackHeight}px`. Each track for an assignment gets a fixed height.
+
+2.  **Calculating Position and Span**: Inside the `<TimelineRow />` component, for each `assignment`, the following calculations are performed:
+    *   **Start Date Index**: The code calculates the difference in days between the assignment's start date and the first day of the visible month (`differenceInDays(startDate, monthStart)`). This determines the grid column where the bar should begin. For example, if an assignment starts on the 5th of the month, its `startDayIndex` will be `4` (since it's a zero-based index).
+    *   **Duration**: The total length of the assignment in days is calculated: `differenceInDays(endDate, startDate) + 1`.
+
+3.  **Applying Grid Styles**:
+    *   The assignment bar (a `div` wrapping the `<TimelineAssignment />` component) is then placed on the grid using an inline style for the `gridColumn` property.
+    *   The style is set as: `gridColumn: `${startDayIndex + 1} / span ${duration}``.
+        *   `startDayIndex + 1`: CSS grid columns are 1-based, so we add 1 to the index. This tells the grid which vertical line the assignment should start on.
+        *   `span ${duration}`: This tells the grid item to span across a specific number of columns, which is equal to the assignment's duration in days.
+
+4.  **Handling Overflows (Clamping)**: The logic also gracefully handles assignments that start before the visible month or end after it.
+    *   It "clamps" the start and end positions to ensure that only the visible portion of the assignment bar is rendered.
+    *   `clampedStart = Math.max(startDayIndex, 0)`: If an assignment starts before the month begins, its starting column is set to the first day (index 0).
+    *   `clampedEnd = Math.min(startDayIndex + duration, monthDays)`: If an assignment extends beyond the month, its ending column is capped at the last day of the month.
+    *   The final `clampedDuration` is used in the `gridColumn` style, ensuring the bar renders perfectly within the visible grid boundaries.
+
+5.  **Stacking in Tracks**:
+    *   The `getAssignmentLayout` function is responsible for preventing visual overlap. It processes all assignments for a line and sorts them into "tracks" (arrays of non-overlapping assignments).
+    *   Each track is rendered on a new row within the timeline's grid for that specific line. The `gridRow` style is set to `${trackIndex + 1}` for each assignment, placing it in the correct horizontal track.
+
+This combination of date logic and dynamic CSS Grid styling allows for a flexible and accurate visual representation of the production schedule.
+
 ---
 
 ## 2. Key Functionalities & Modals
@@ -116,48 +146,48 @@ This is the core interactive grid for visualizing and managing the production sc
 
 The drag-and-drop functionality is central to the user experience.
 
-*   **Provider**: The main page is wrapped in a `<ClientOnlyDndProvider>` which initializes the `DndContext`.
-*   **Drag Overlay**: A `<DragOverlay>` is used to render a custom, styled version of the item being dragged, providing clear visual feedback.
+*   **Provider**: The main page is wrapped in a `<ClientOnlyDndProvider>` which initializes the `DndContext`. This provider is essential for the drag-and-drop system to work.
+*   **Drag Overlay**: A `<DragOverlay>` is used to render a custom, styled version of the item being dragged, providing clear visual feedback to the user. This ensures the dragged item looks identical to the source item and moves smoothly across the screen.
 *   **Event Handling**:
-    *   `onDragStart`: Identifies whether an `OrderCard` or a `TimelineAssignment` is being dragged and stores its data.
-    *   `onDragEnd`: Determines the outcome of the drop.
-        *   **Order to Unit**: If an `OrderCard` is dropped on a `UnitCard`, it opens the `<AssignOrderModal />`.
-        *   **Assignment Move**: If a `TimelineAssignment` is dropped on a `<TimelineCell />`, it opens the `<MoveAssignmentModal />`.
+    *   `onDragStart`: This event handler identifies whether an `OrderCard` or a `TimelineAssignment` is being dragged and stores its data in the component's state. This allows the application to know what kind of item is active.
+    *   `onDragEnd`: This handler determines the outcome of the drop based on the source and target.
+        *   **Order to Unit**: If an `OrderCard` is dropped on a `UnitCard`, it opens the `<AssignOrderModal />`, pre-selecting the target unit.
+        *   **Assignment Move**: If a `TimelineAssignment` is dropped on a `<TimelineCell />` (a day cell in the timeline), it opens the `<MoveAssignmentModal />`, pre-populating the details of the move.
 
 ### 2.2. Calendars (`react-day-picker` & `date-fns`)
 
-Calendars are used extensively for date selection and navigation.
+Calendars are used extensively for date selection and navigation. The consistent use of these libraries is crucial for a predictable user experience.
 
-*   **Library**: `react-day-picker` is used for the calendar UI, wrapped in ShadCN's `Calendar` component. `date-fns` is used for all date calculations (e.g., `differenceInDays`, `format`, `addDays`, `startOfDay`).
-*   **Usage**:
-    *   **Single Date Selection**: Used in the header to filter by a single ETD.
-    *   **Month Navigation**: Used in the header to change the visible month on the timeline. A `captionLayout="dropdown-buttons"` is used for easy year/month selection.
-    *   **Date Range Selection**: Used in the `<AssignOrderModal />` and `<FiltersModal />` to select a `from` and `to` date. The calendar is shown with `mode="range"` and `numberOfMonths={2}` for a better user experience.
+*   **Library**: `react-day-picker` is used for rendering the calendar UI. It is wrapped in ShadCN's `Calendar` component for styling consistency. All date logic, such as calculating differences, formatting, and adding days, is handled by the `date-fns` library.
+*   **Usage Scenarios**:
+    *   **Single Date Selection**: In the main header, a calendar is used to filter orders by a single **ETD (Estimated Time of Departure)**. This calendar is in `mode="single"`.
+    *   **Month Navigation**: In the header, a calendar is used to change the visible month on the timeline. It is configured with `captionLayout="dropdown-buttons"` to allow for easy selection of both month and year, providing a much better UX than simple next/previous arrows.
+    *   **Date Range Selection**: In the `<AssignOrderModal />` and `<FiltersModal />`, calendars are used for selecting a `from` and `to` date. These are configured with `mode="range"` and `numberOfMonths={2}` to give the user a two-month view, which is essential for production planning that spans across month boundaries.
 
 ### 2.3. Modal: Assign Order (`<AssignOrderModal />`)
 
-This modal is the primary interface for creating a new production assignment.
+This modal is the primary interface for creating a new production assignment. It is designed to be a step-by-step guide for the user.
 
 *   **Trigger**: Dragging an `OrderCard` and dropping it onto a `UnitCard`.
 *   **Content**:
-    *   **Header**: Displays "Assign Order: [Order Number] to [Unit Name]" and shows the order's remaining assignable quantity.
+    *   **Header**: Displays "Assign Order: [Order Number] to [Unit Name]" and shows the order's remaining assignable quantity as a key piece of information.
     *   **Step 1: Production Dates**:
         *   A `Popover` containing a `Calendar` from `react-day-picker`.
-        *   The calendar must be in `mode="range"` and show `numberOfMonths={2}`.
+        *   The calendar **must** be in `mode="range"` and show `numberOfMonths={2}`.
         *   The user selects a `from` and `to` date for the production run.
     *   **Step 2: Line Assignments**:
-        *   A section where users can add one or more production lines from the target unit.
+        *   A dynamic section where users can add one or more production lines from the target unit.
         *   An "Add Line" button adds a new assignment row.
         *   Each row contains:
-            *   A `Select` dropdown to choose a specific `ProductionLine` from the target unit.
+            *   A `Select` dropdown to choose a specific `ProductionLine` from the target unit. The dropdown only shows lines that haven't been added yet.
             *   An `Input` field to enter the `quantity` for that line.
-            *   A `CapacityBar` to visualize the line's monthly capacity utilization after this assignment.
+            *   A `CapacityBar` to visualize the line's monthly capacity utilization after this potential assignment. This provides instant visual feedback.
             *   A `Trash2` icon button to remove that specific line assignment.
     *   **Summary Section**:
-        *   Displays the total `Production Days` calculated from the date range.
-        *   Shows the `Total to Assign` (sum of quantities from all line inputs).
-        *   Shows the `Order Qty After Assign` (order's remaining quantity minus the total to assign). This value turns red if negative.
-    *   **Footer**: Contains "Cancel" and "Confirm Assignment" buttons. The confirm button is disabled if no lines are added or the total quantity is zero.
+        *   Displays the total `Production Days` calculated from the selected date range.
+        *   Shows the `Total to Assign` (the sum of quantities from all line inputs).
+        *   Shows the `Order Qty After Assign` (the order's remaining quantity minus the total to assign). This value **must** turn red if it becomes negative to alert the user.
+    *   **Footer**: Contains "Cancel" and "Confirm Assignment" buttons. The confirm button is disabled if no lines are added, the total quantity is zero, or the form is otherwise invalid.
 
 *   **Functional Scenarios**:
     *   **Scenario 1: Successful Assignment**:
@@ -173,7 +203,7 @@ This modal is the primary interface for creating a new production assignment.
         3.  The assignment is blocked. An `Alert` appears inside the modal explaining which line is over capacity and by how much. The modal remains open for the user to correct the quantity.
     *   **Scenario 3: Over-assigning Order Quantity**:
         1.  The user enters quantities across lines that sum up to more than the order's `remaining` quantity.
-        2.  The "Order Qty After Assign" summary turns red.
+        2.  The "Order Qty After Assign" summary text turns red.
         3.  If the user clicks "Confirm", an `Alert` is displayed in the modal, and the assignment is blocked.
     *   **Scenario 4: Incomplete Form**:
         1.  User clicks "Confirm" without selecting dates or adding any lines.
@@ -192,9 +222,9 @@ This modal handles the logic for moving or splitting an existing assignment on t
         *   Original Dates: `startDate` to `endDate`
         *   New Dates: `newStartDate` to `newEndDate`
     *   **Quantity to Move**:
-        *   An `Input` field pre-filled with the assignment's total quantity. The user can edit this to perform a partial move (split). The input has a `max` attribute set to the original quantity.
+        *   An `Input` field pre-filled with the assignment's total quantity. The user can edit this to perform a partial move (split). The input **must** have a `max` attribute set to the original quantity.
     *   **Capacity Visualization**:
-        *   A `CapacityBar` showing the capacity utilization on the `targetLine` for the new date range, including the quantity being moved.
+        *   A `CapacityBar` showing the capacity utilization on the `targetLine` for the new date range, including the quantity being moved. This provides immediate feedback on the validity of the move.
     *   **Footer**: "Cancel" and "Confirm Move" buttons.
 
 *   **Functional Scenarios**:
@@ -224,11 +254,11 @@ This modal allows for the quick creation of placeholder orders for planning purp
 *   **Trigger**: Clicking the "Tentative Order" button in the `<AppHeader />`.
 *   **Content**:
     *   **Header**: "Create Tentative Order".
-    *   **Form Fields**:
+    *   **Form Fields** (with validation):
         *   `order_num`: Text input.
         *   `customer`: Text input, defaults to "Planning Dept".
         *   `style`: Text input.
-        *   `qty`: Number input.
+        *   `qty`: Number input (must be > 0).
         *   `etd_date`: Date input.
     *   **Footer**: "Cancel" and "Create Order" buttons.
 
@@ -249,13 +279,13 @@ This modal provides a powerful interface for filtering the "Available Orders" li
 *   **Trigger**: Clicking the "More Filters" button in the `<AppHeader />`.
 *   **Content**:
     *   **Header**: "More Filters".
-    *   **Layout**: A three-column grid.
-    *   **Column 1: Details**:
-        *   `OC Number Contains`: A text input for partial string matching.
+    *   **Layout**: A three-column grid for better organization.
+    *   **Column 1: By Details**:
+        *   `OC Number Contains`: A text input for partial string matching on the order number.
         *   `Quantity Range`: Two number inputs for `min` and `max` quantity.
-        *   `Order Date`: A `Popover` with a `react-day-picker` `Calendar` in `range` mode.
+        *   `Order Date`: A `Popover` with a `react-day-picker` `Calendar` in `range` mode to filter by order creation date.
     *   **Column 2: By Style**:
-        *   A `ScrollArea` containing a list of `Checkbox` components for every unique style. Users can select multiple styles.
+        *   A `ScrollArea` containing a list of `Checkbox` components for every unique style. Users can select multiple styles to filter by.
     *   **Column 3: By Status**:
         *   A `ScrollArea` containing a list of `Checkbox` components for each status type (`Planned`, `Partially Assigned`, etc.).
     *   **Footer**:
@@ -265,10 +295,10 @@ This modal provides a powerful interface for filtering the "Available Orders" li
 *   **Functional Scenarios**:
     *   **Scenario 1: Applying Filters**:
         1.  User opens the modal and interacts with any filter control (e.g., types in a quantity range, checks a style box).
-        2.  The application state for filters is updated instantly. The "Available Orders" section re-renders in the background to show only orders that match all active criteria.
+        2.  The application state for filters is updated instantly. The "Available Orders" section re-renders in the background to show only orders that match all active criteria (from both the header and the modal).
     *   **Scenario 2: Clearing Filters**:
         1.  User clicks "Clear All Filters".
-        2.  All filter states are reset. The "Available Orders" section updates to show all available orders.
+        2.  All filter states are reset to their default values. The "Available Orders" section updates to show all available orders again.
     *   **Scenario 3: Closing the Modal**:
         1.  User clicks "Apply & Close" or the 'X' button.
-        2.  The modal closes. The last applied filter state remains active.
+        2.  The modal closes. The last applied filter state remains active and continues to filter the orders.
