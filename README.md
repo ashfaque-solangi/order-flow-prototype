@@ -106,7 +106,7 @@ This is the core interactive grid for visualizing and managing the production sc
     *   **Stacking (Tracks)**: If multiple orders are assigned to the same line during overlapping dates, they are stacked vertically in "tracks" within the same timeline row to avoid visual collision.
     *   **Tentative Style**: Tentative assignments have a distinct striped pattern to differentiate them from firm orders.
     *   **Draggable Element**: Each assignment bar is draggable using `@dnd-kit/core`, allowing users to move it.
-*   **Droppable Cells (`<TimelineCell />`)**: Each day cell within a timeline row is a droppable zone that accepts dragged assignments, enabling moves.
+    *   **Droppable Cells (`<TimelineCell />`)**: Each day cell within a timeline row is a droppable zone that accepts dragged assignments, enabling moves.
 
 ---
 
