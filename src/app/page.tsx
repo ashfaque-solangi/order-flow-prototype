@@ -352,8 +352,8 @@ export default function StitchFlowPage() {
     for (const day of eachDayOfInterval(newInterval)) {
         const dayStart = startOfDay(day);
         const existingAssignedOnDay = targetLine.assignments.reduce((sum, existingAssignment) => {
-            // Exclude the original assignment if it's on the same line (it's being moved)
-            if (existingAssignment.id === assignment.id && sourceLineId === targetLineId) return sum;
+            // When moving within the same line, the original assignment is not part of the "existing" load
+            if (existingAssignment.id === assignment.id) return sum;
 
             const existingStart = startOfDay(parseISO(existingAssignment.startDate));
             const existingEnd = startOfDay(parseISO(existingAssignment.endDate));
@@ -418,99 +418,133 @@ export default function StitchFlowPage() {
 };
 
 const handleAutoPlan = (ordersToPlan: { orderId: string, quantity: number }[], dateRange: DateRange) => {
-    if (!dateRange.from || !dateRange.to) {
-        toast({ variant: 'destructive', title: 'Auto-Plan Error', description: 'A valid date range is required for auto-planning.' });
-        return;
-    }
+  if (!dateRange.from || !dateRange.to) {
+      toast({ variant: 'destructive', title: 'Auto-Plan Error', description: 'A valid date range is required for auto-planning.' });
+      return;
+  }
 
-    let tempOrders = JSON.parse(JSON.stringify(orders));
-    let tempUnits = JSON.parse(JSON.stringify(units));
-    
-    const planningInterval = { start: startOfDay(dateRange.from), end: startOfDay(dateRange.to) };
-    const planningDays = eachDayOfInterval(planningInterval);
+  let tempOrders = JSON.parse(JSON.stringify(orders));
+  let tempUnits = JSON.parse(JSON.stringify(units));
+  
+  const planningInterval = { start: startOfDay(dateRange.from), end: startOfDay(dateRange.to) };
+  const planningDays = eachDayOfInterval(planningInterval);
 
-    const allLinesWithCapacity = tempUnits.flatMap((unit: Unit) => unit.lines.map((line: ProductionLine) => {
-        const totalCapacityInPeriod = line.dailyCap * planningDays.length;
-        const assignedQuantityInPeriod = line.assignments.reduce((sum: number, a: Assignment) => {
-            const aStart = parseISO(a.startDate);
-            const aEnd = parseISO(a.endDate);
-            if (areIntervalsOverlapping(planningInterval, { start: aStart, end: aEnd })) {
-                return sum + a.quantity;
-            }
-            return sum;
-        }, 0);
-        const utilization = totalCapacityInPeriod > 0 ? (assignedQuantityInPeriod / totalCapacityInPeriod) * 100 : 0;
-        return { ...line, unitId: unit.id, utilization };
-    })).sort((a, b) => a.utilization - b.utilization);
+  let assignmentsMade = 0;
+  let planningSucceeded = true;
+  
+  for (const { orderId, quantity } of ordersToPlan) {
+      const order = tempOrders.find((o: Order) => o.id === orderId);
+      if (!order || quantity <= 0) continue;
 
-    let assignmentsMade = 0;
-    
-    for (const { orderId, quantity } of ordersToPlan) {
-        const order = tempOrders.find((o: Order) => o.id === orderId);
-        if (!order || quantity <= 0) continue;
+      let assigned = false;
+      
+      // Sort lines by utilization for every order to re-evaluate load
+      const allLinesSorted = tempUnits.flatMap((unit: Unit) => unit.lines.map((line: ProductionLine) => {
+          const totalCapacityInPeriod = line.dailyCap * planningDays.length;
+          let assignedQuantityInPeriod = 0;
+          for (const day of planningDays) {
+              assignedQuantityInPeriod += line.assignments.reduce((sum: number, a: Assignment) => {
+                  if (isWithinInterval(day, { start: parseISO(a.startDate), end: parseISO(a.endDate) })) {
+                      const duration = differenceInDays(parseISO(a.endDate), parseISO(a.startDate)) + 1;
+                      return sum + (a.quantity / duration);
+                  }
+                  return sum;
+              }, 0);
+          }
+          const utilization = totalCapacityInPeriod > 0 ? (assignedQuantityInPeriod / totalCapacityInPeriod) * 100 : Infinity;
+          return { ...line, unitId: unit.id, utilization };
+      })).sort((a, b) => a.utilization - b.utilization);
 
-        let assigned = false;
-        for (const line of allLinesWithCapacity) {
-            if (line.dailyCap <= 0) continue;
+      for (const line of allLinesSorted) {
+          if (line.dailyCap <= 0) continue;
 
-            const requiredDays = Math.ceil(quantity / line.dailyCap);
-            if (requiredDays > planningDays.length) continue; // Not enough time in the whole period
+          const orderDailyQty = quantity / (differenceInDays(planningInterval.end, planningInterval.start) + 1);
+          if (orderDailyQty > line.dailyCap) continue;
 
-            // Find an available slot of `requiredDays`
-            for (let i = 0; i <= planningDays.length - requiredDays; i++) {
-                const potentialStart = planningDays[i];
-                const potentialEnd = addDays(potentialStart, requiredDays - 1);
-                const newInterval = { start: potentialStart, end: potentialEnd };
+          const requiredDays = Math.ceil(quantity / line.dailyCap);
+          if (requiredDays > planningDays.length) continue; 
 
-                const isOverlapping = line.assignments.some((a: Assignment) => 
-                    areIntervalsOverlapping(newInterval, { start: parseISO(a.startDate), end: parseISO(a.endDate) })
-                );
+          for (let i = 0; i <= planningDays.length - requiredDays; i++) {
+              const slotStart = planningDays[i];
+              const slotEnd = addDays(slotStart, requiredDays - 1);
+              const slotInterval = { start: slotStart, end: slotEnd };
+              
+              if (slotEnd > planningInterval.end) continue;
 
-                if (!isOverlapping) {
-                    const newAssignment: Assignment = {
-                        id: `as-${Date.now()}-${Math.random()}`,
-                        orderId,
-                        order_num: order.order_num,
-                        quantity,
-                        startDate: format(potentialStart, 'yyyy-MM-dd'),
-                        endDate: format(potentialEnd, 'yyyy-MM-dd'),
-                        tentative: order.tentative,
-                    };
-                    
-                    line.assignments.push(newAssignment);
-                    
-                    const orderIndex = tempOrders.findIndex((o: Order) => o.id === orderId);
-                    const currentOrder = tempOrders[orderIndex];
-                    const newAssigned = currentOrder.qty.assigned + quantity;
-                    currentOrder.qty.assigned = newAssigned;
+              let slotIsViable = true;
+              for (const day of eachDayOfInterval(slotInterval)) {
+                  const dayStart = startOfDay(day);
+                  const existingLoadOnDay = line.assignments.reduce((sum, existing) => {
+                      if (isWithinInterval(dayStart, { start: startOfDay(parseISO(existing.startDate)), end: startOfDay(parseISO(existing.endDate)) })) {
+                          const duration = differenceInDays(parseISO(existing.endDate), parseISO(existing.startDate)) + 1;
+                          return sum + (existing.quantity / duration);
+                      }
+                      return sum;
+                  }, 0);
+                  
+                  if (existingLoadOnDay + (quantity / requiredDays) > line.dailyCap + 0.001) {
+                      slotIsViable = false;
+                      break;
+                  }
+              }
+
+              if (slotIsViable) {
+                  const newAssignment: Assignment = {
+                      id: `as-${Date.now()}-${Math.random()}`,
+                      orderId,
+                      order_num: order.order_num,
+                      quantity,
+                      startDate: format(slotStart, 'yyyy-MM-dd'),
+                      endDate: format(slotEnd, 'yyyy-MM-dd'),
+                      tentative: order.tentative,
+                  };
+                  
+                  // Find the line in tempUnits and add the assignment
+                  const unitToUpdate = tempUnits.find(u => u.id === line.unitId);
+                  const lineToUpdate = unitToUpdate?.lines.find(l => l.id === line.id);
+                  if (lineToUpdate) {
+                      lineToUpdate.assignments.push(newAssignment);
+                  }
+
+                  const orderIndex = tempOrders.findIndex((o: Order) => o.id === orderId);
+                  const currentOrder = tempOrders[orderIndex];
+                  const newAssigned = currentOrder.qty.assigned + quantity;
+                  currentOrder.qty.assigned = newAssigned;
                     currentOrder.qty.remaining = currentOrder.qty.total - newAssigned;
-                    currentOrder.status = currentOrder.qty.remaining > 0 ? 'Partially Assigned' : 'Fully Assigned';
+                  currentOrder.status = currentOrder.qty.remaining > 0 ? 'Partially Assigned' : 'Fully Assigned';
 
-                    assigned = true;
-                    assignmentsMade++;
-                    break; 
-                }
-            }
-            if (assigned) break;
-        }
+                  assigned = true;
+                  assignmentsMade++;
+                  break; 
+              }
+          }
+          if (assigned) break;
+      }
 
-        if (!assigned) {
-            toast({
-                variant: 'destructive',
-                title: `Planning Failed for ${order.order_num}`,
-                description: `Could not find a suitable continuous slot for ${quantity.toLocaleString()} units within the selected dates.`,
-            });
-        }
-    }
+      if (!assigned) {
+          planningSucceeded = false;
+          toast({
+              variant: 'destructive',
+              title: `Planning Failed for ${order.order_num}`,
+              description: `Could not find a suitable slot for ${quantity.toLocaleString()} units within the selected dates and capacity limits.`,
+          });
+      }
+  }
 
-    if (assignmentsMade > 0) {
-        setOrders(tempOrders);
-        setUnits(tempUnits);
-        toast({
-            title: 'Auto-Plan Complete!',
-            description: `Successfully created ${assignmentsMade} new assignment(s).`,
-        });
-    }
+  if (assignmentsMade > 0) {
+      setOrders(tempOrders);
+      setUnits(tempUnits);
+      toast({
+          title: 'Auto-Plan Complete!',
+          description: `Successfully created ${assignmentsMade} new assignment(s).`,
+      });
+  } else if (planningSucceeded) {
+      toast({
+          variant: 'destructive',
+          title: 'Auto-Plan Warning',
+          description: `No assignments could be made for the selected orders.`,
+      });
+  }
 };
 
   
@@ -656,3 +690,5 @@ const handleAutoPlan = (ordersToPlan: { orderId: string, quantity: number }[], d
     </ClientOnlyDndProvider>
   );
 }
+
+    

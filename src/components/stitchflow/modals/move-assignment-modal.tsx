@@ -16,7 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Assignment, ProductionLine } from '@/lib/data';
 import { DateRange } from 'react-day-picker';
-import { addDays, format, differenceInDays, parseISO, isWithinInterval, startOfDay } from 'date-fns';
+import { addDays, format, differenceInDays, parseISO, isWithinInterval, startOfDay, eachDayOfInterval } from 'date-fns';
 import { Loader2, AlertCircle } from 'lucide-react';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import CapacityBar from '../capacity-bar';
@@ -62,30 +62,35 @@ export default function MoveAssignmentModal({ isOpen, onClose, assignmentState, 
 
   const duration = differenceInDays(startOfDay(parseISO(assignment.endDate)), startOfDay(parseISO(assignment.startDate))) + 1;
   const newEndDate = addDays(newStartDate, duration - 1);
+  const newInterval = { start: startOfDay(newStartDate), end: startOfDay(newEndDate) };
 
-  const { availableCapacity, targetLineCapacity, targetLineAssigned } = useMemo(() => {
-    if (!targetLine) return { availableCapacity: 0, targetLineCapacity: 0, targetLineAssigned: 0 };
-
-    const totalCapacity = targetLine.dailyCap * duration;
+  const { targetLineCapacity, targetLineAssigned } = useMemo(() => {
+    if (!targetLine) return { targetLineCapacity: 0, targetLineAssigned: 0 };
     
-    const assignedDuringDrop = targetLine.assignments
-        .filter(a => a.id !== assignment.id)
-        .reduce((sum, a) => {
-        const aStart = startOfDay(parseISO(a.startDate));
-        const aEnd = startOfDay(parseISO(a.endDate));
-        if(isWithinInterval(startOfDay(newStartDate), {start: aStart, end: aEnd}) || isWithinInterval(startOfDay(newEndDate), {start: aStart, end: aEnd})) {
-            const assignmentDuration = differenceInDays(aEnd, aStart) + 1;
-            return sum + (a.quantity / assignmentDuration) * Math.min(duration, assignmentDuration);
-        }
-        return sum;
-    }, 0);
+    const totalCapacity = targetLine.dailyCap * duration;
+    let totalAssigned = 0;
+    
+    for (const day of eachDayOfInterval(newInterval)) {
+        const dayStart = startOfDay(day);
+        const existingAssignedOnDay = targetLine.assignments.reduce((sum, existingAssignment) => {
+            if (existingAssignment.id === assignment.id) return sum;
+            
+            const existingStart = startOfDay(parseISO(existingAssignment.startDate));
+            const existingEnd = startOfDay(parseISO(existingAssignment.endDate));
+            if (isWithinInterval(dayStart, { start: existingStart, end: existingEnd })) {
+                const existingDuration = differenceInDays(existingEnd, existingStart) + 1;
+                return sum + (existingAssignment.quantity / existingDuration);
+            }
+            return sum;
+        }, 0);
+        totalAssigned += existingAssignedOnDay;
+    }
 
     return { 
-        availableCapacity: totalCapacity - assignedDuringDrop,
         targetLineCapacity: totalCapacity,
-        targetLineAssigned: assignedDuringDrop
+        targetLineAssigned: totalAssigned / duration, // Average over the period for the bar
     };
-  }, [targetLine, newStartDate, newEndDate, duration, assignment.id]);
+  }, [targetLine, newInterval, duration, assignment.id]);
   
 
   const handleSubmit = () => {
@@ -171,10 +176,7 @@ export default function MoveAssignmentModal({ isOpen, onClose, assignmentState, 
            {targetLine && 
             <div className="space-y-2 p-3 border rounded-lg">
                 <Label>Target Line Capacity for this period ({duration} days)</Label>
-                <CapacityBar total={targetLineCapacity} used={targetLineAssigned + quantity} />
-                <div className="text-xs text-muted-foreground">
-                    Available: {Math.max(0, availableCapacity - quantity).toLocaleString()} / Required: {quantity.toLocaleString()}
-                </div>
+                <CapacityBar total={targetLineCapacity} used={targetLineAssigned + (quantity / duration)} />
             </div>
             }
 
@@ -190,5 +192,7 @@ export default function MoveAssignmentModal({ isOpen, onClose, assignmentState, 
     </Dialog>
   );
 }
+
+    
 
     
