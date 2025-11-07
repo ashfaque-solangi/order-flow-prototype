@@ -47,8 +47,8 @@ export default function AppHeader({
   return (
     <header className="bg-card border-b shadow-sm p-3 sticky top-0 z-10">
       <div className="flex items-center justify-between gap-4 flex-wrap">
-        <div className="flex items-center gap-4">
-          <h1 className="text-xl font-bold text-primary">StitchFlow</h1>
+        <div className="flex items-center gap-2 sm:gap-4">
+          <h1 className="text-lg sm:text-xl font-bold text-primary">StitchFlow</h1>
           <Badge variant="secondary" className="hidden sm:flex items-center gap-2">
             Available Orders <span className="font-bold text-primary">{availableOrdersCount}</span>
           </Badge>
@@ -63,7 +63,7 @@ export default function AppHeader({
               value={filters.customer[0] || 'all'}
               onValueChange={(value) => handleFilterChange('customer', value === 'all' ? [] : [value])}
             >
-              <SelectTrigger className="w-[150px] h-9 text-xs">
+              <SelectTrigger className="w-[120px] sm:w-[150px] h-9 text-xs">
                 <SelectValue placeholder="All Customers" />
               </SelectTrigger>
               <SelectContent>
@@ -75,7 +75,7 @@ export default function AppHeader({
               value={filters.oc[0] || 'all'}
               onValueChange={(value) => handleFilterChange('oc', value === 'all' ? [] : [value])}
             >
-              <SelectTrigger className="w-[140px] h-9 text-xs">
+              <SelectTrigger className="w-[110px] sm:w-[140px] h-9 text-xs">
                 <SelectValue placeholder="All OC #" />
               </SelectTrigger>
               <SelectContent>
@@ -90,12 +90,14 @@ export default function AppHeader({
                   variant={'outline'}
                   size="sm"
                   className={cn(
-                    'w-[150px] justify-start text-left font-normal h-9 text-xs',
+                    'w-auto sm:w-[150px] justify-start text-left font-normal h-9 text-xs',
                     !filters.etd && 'text-muted-foreground'
                   )}
                 >
                   <CalendarIcon className="mr-2 h-4 w-4" />
-                  {filters.etd ? format(filters.etd, 'PPP') : <span>ETD Date</span>}
+                  <span className="hidden sm:inline">
+                    {filters.etd ? format(filters.etd, 'PPP') : <span>ETD Date</span>}
+                  </span>
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0">
@@ -109,11 +111,11 @@ export default function AppHeader({
             </Popover>
 
             <Button variant="outline" size="sm" className="h-9" onClick={onOpenFilters}>
-              <Filter className="h-4 w-4 mr-2" /> More Filters
+              <Filter className="h-4 w-4 mr-0 sm:mr-2" /> <span className="hidden sm:inline">More Filters</span>
             </Button>
           </div>
 
-          <Separator orientation="vertical" className="h-6 mx-2" />
+          <Separator orientation="vertical" className="h-6 mx-2 hidden md:block" />
           
           <div className="flex items-center gap-2">
              <Button
@@ -127,9 +129,9 @@ export default function AppHeader({
             </Button>
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" size="sm" className="h-9 w-[160px] justify-start">
-                  <CalendarClock className="h-4 w-4 mr-2" />
-                  {format(selectedMonth, 'MMMM yyyy')}
+                <Button variant="outline" size="sm" className="h-9 w-auto sm:w-[160px] justify-start">
+                  <CalendarClock className="h-4 w-4 mr-0 sm:mr-2" />
+                  <span className="hidden sm:inline">{format(selectedMonth, 'MMMM yyyy')}</span>
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0" align="end">
@@ -161,25 +163,25 @@ export default function AppHeader({
               onClick={() => setSelectedMonth(new Date())}
               disabled={isCurrentMonth}
             >
-              <Undo2 className="h-4 w-4 mr-2"/>
-              Today
+              <Undo2 className="h-4 w-4 mr-0 sm:mr-2"/>
+              <span className="hidden sm:inline">Today</span>
             </Button>
           </div>
 
-          <Separator orientation="vertical" className="h-6 mx-2" />
+          <Separator orientation="vertical" className="h-6 mx-2 hidden lg:block" />
 
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" className="h-9" onClick={onReset}>
-              <RotateCcw className="h-4 w-4 mr-2" />
-              Reset Data
+              <RotateCcw className="h-4 w-4 mr-0 sm:mr-2" />
+              <span className="hidden sm:inline">Reset</span>
             </Button>
             <Button size="sm" className="h-9 bg-accent hover:bg-accent/90" onClick={onAddTentative}>
-              <PlusCircle className="h-4 w-4 mr-2" />
-              Tentative Order
+              <PlusCircle className="h-4 w-4 mr-0 sm:mr-2" />
+              <span className="hidden sm:inline">Tentative</span>
             </Button>
              <Button size="sm" className="h-9" onClick={onOpenAutoPlan}>
-                <Wand2 className="mr-2 h-4 w-4" />
-                Auto-Plan
+                <Wand2 className="mr-0 sm:mr-2 h-4 w-4" />
+                <span className="hidden sm:inline">Auto-Plan</span>
             </Button>
           </div>
         </div>
@@ -187,3 +189,5 @@ export default function AppHeader({
     </header>
   );
 }
+
+    

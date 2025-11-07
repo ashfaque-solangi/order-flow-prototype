@@ -91,9 +91,9 @@ export default function TimelineRow({ line, days, monthStart, onUnassign }: Time
             className="text-sm p-2 sticky left-0 bg-card z-20 border-r border-b group-hover:bg-muted/50 flex flex-col justify-center"
             style={{ height: `${rowHeight}px` }}
         >
-            <p className="font-semibold">{line.name}</p>
-            <p className="text-xs text-muted-foreground">{line.unitName}</p>
-            <div className='mt-auto text-xs text-muted-foreground pt-1'>
+            <p className="font-semibold truncate">{line.name}</p>
+            <p className="text-xs text-muted-foreground truncate">{line.unitName}</p>
+            <div className='mt-auto text-xs text-muted-foreground pt-1 space-y-1'>
                 <p>Cap: {line.dailyCap.toLocaleString()}/day</p>
                 <p>Assigned: {totalAssigned.toLocaleString()}</p>
             </div>

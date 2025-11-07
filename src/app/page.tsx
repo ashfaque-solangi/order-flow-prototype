@@ -13,7 +13,7 @@ import TentativeOrderModal from '@/components/stitchflow/modals/tentative-order-
 import AutoPlanModal from '@/components/stitchflow/modals/auto-plan-modal';
 import FiltersModal from '@/components/stitchflow/modals/filters-modal';
 import { useToast } from '@/hooks/use-toast';
-import { format, differenceInDays, isWithinInterval, startOfDay, parseISO, areIntervalsOverlapping, getDaysInMonth, startOfMonth, endOfMonth, addDays, max, eachDayOfInterval } from 'date-fns';
+import { format, differenceInDays, isWithinInterval, startOfDay, parseISO, areIntervalsOverlapping, getDaysInMonth, startOfMonth, addDays, max, eachDayOfInterval } from 'date-fns';
 import { DragEndEvent, DragStartEvent, DragOverlay } from '@dnd-kit/core';
 import type { ProductionLine, Assignment } from '@/lib/data';
 import { ClientOnlyDndProvider } from '@/components/stitchflow/dnd-provider';
@@ -727,3 +727,5 @@ const handleAutoPlan = (ordersToPlan: { orderId: string, quantity: number }[], d
     </ClientOnlyDndProvider>
   );
 }
+
+    

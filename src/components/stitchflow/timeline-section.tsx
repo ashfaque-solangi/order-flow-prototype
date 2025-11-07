@@ -18,7 +18,7 @@ type TimelineSectionProps = {
 };
 
 const CapacityLegend = () => (
-    <div className="flex items-center gap-4 text-xs text-muted-foreground mb-2">
+    <div className="flex items-center gap-2 sm:gap-4 text-xs text-muted-foreground mb-2 flex-wrap">
         <div className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded-full bg-green-500/80"></span>
             <span>0-70%</span>
@@ -33,7 +33,7 @@ const CapacityLegend = () => (
         </div>
         <div className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded-full bg-red-700"></span>
-            <span>Over 100%</span>
+            <span>&gt;100%</span>
         </div>
     </div>
 );
@@ -58,7 +58,7 @@ export default function TimelineSection({ units, selectedMonth, allLines, onUnas
 
   return (
     <div className="flex flex-col flex-1 min-h-0">
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-start flex-wrap">
         <h2 className="text-lg font-semibold mb-2 flex items-center">
             <CalendarDays className="w-5 h-5 mr-2 text-primary" /> 
             Production Line Timeline - <span className='text-primary ml-2'>{format(selectedMonth, 'MMMM yyyy')}</span>
@@ -67,7 +67,7 @@ export default function TimelineSection({ units, selectedMonth, allLines, onUnas
       </div>
       <ScrollArea className="flex-1 rounded-lg border bg-card">
         <div className="relative">
-          <div className="grid items-start" style={{ gridTemplateColumns: `200px minmax(0, 1fr)` }}>
+          <div className="grid items-start" style={{ gridTemplateColumns: `150px minmax(0, 1fr)` }}>
             {/* Header */}
             <div className="sticky top-0 z-30 font-semibold text-sm text-muted-foreground pl-2 bg-card border-r border-b h-16 flex items-center">Line Details</div>
             <div className="sticky top-0 z-30 bg-card grid" style={{gridTemplateColumns: `repeat(${days.length}, minmax(48px, 1fr))`}}>

@@ -34,18 +34,18 @@ export default function OrderCard({ order, isDragging }: OrderCardProps) {
       ref={isAssignable ? setNodeRef : null}
       style={style}
       className={cn(
-        "w-[280px] shrink-0 flex flex-col transition-shadow hover:shadow-lg",
+        "w-full min-w-[260px] shrink-0 flex flex-col transition-shadow hover:shadow-lg",
         (dndIsDragging || isDragging) && "shadow-2xl z-50 scale-105",
         !isAssignable && "opacity-60 bg-slate-50",
         order.tentative && "border-dashed border-amber-500/80",
         "group"
       )}
     >
-      <CardHeader className="flex-row justify-between items-center py-2">
+      <CardHeader className="flex-row justify-between items-center py-2 px-4">
         <CardTitle className="text-base font-semibold truncate">{order.order_num}</CardTitle>
         {order.tentative && <Badge variant="outline" className="border-amber-500 text-amber-600 bg-amber-50 text-xs">Tentative</Badge>}
       </CardHeader>
-      <CardContent className="py-2 text-sm space-y-1">
+      <CardContent className="py-2 px-4 text-sm space-y-1">
         <div className="flex justify-between items-center">
             <span className="text-muted-foreground">Customer</span>
             <span className="font-medium truncate">{order.customer}</span>
@@ -63,7 +63,7 @@ export default function OrderCard({ order, isDragging }: OrderCardProps) {
             <span className="font-medium">{format(parseISO(order.etd_date), 'M/d/yyyy')}</span>
         </div>
       </CardContent>
-      <CardFooter className="py-2 flex justify-between items-center text-xs mt-auto">
+      <CardFooter className="p-2 px-4 flex justify-between items-center text-xs mt-auto bg-slate-50/70">
         <div className="text-muted-foreground">
           Planned: <Badge variant="secondary" className="font-bold">{order.qty.assigned.toLocaleString()}</Badge>
         </div>
@@ -81,3 +81,5 @@ export default function OrderCard({ order, isDragging }: OrderCardProps) {
     </Card>
   );
 }
+
+    
