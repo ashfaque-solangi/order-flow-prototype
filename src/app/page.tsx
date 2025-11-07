@@ -155,105 +155,90 @@ export default function StitchFlowPage() {
   ): Promise<{ success: boolean; message?: string }> => {
     const order = orders.find((o) => o.id === orderId);
     if (!order) return { success: false, message: 'Order not found' };
-
-    const productionDays = differenceInDays(dates.to, dates.from) + 1;
-    const assignmentInterval = {
-      start: startOfDay(dates.from),
-      end: startOfDay(dates.to),
-    };
-    
-    // Process all assignments at once
+  
+    const allLines = units.flatMap(u => u.lines);
+  
+    // --- Validation Phase ---
     for (const assignment of assignments) {
-        if(assignment.quantity <= 0) continue;
-
-        let targetLine: ProductionLine | undefined;
-        let unitId: string | undefined;
-
-        for (const unit of units) {
-            const line = unit.lines.find((l) => l.id === assignment.lineId);
-            if (line) {
-                targetLine = line;
-                unitId = unit.id;
-                break;
-            }
+      if (assignment.quantity <= 0) continue;
+  
+      const targetLine = allLines.find((l) => l.id === assignment.lineId);
+      if (!targetLine) {
+        return { success: false, message: `Production line ${assignment.lineId} not found.` };
+      }
+  
+      const assignmentDays = eachDayOfInterval({ start: dates.from, end: dates.to });
+      const dailyQuantity = assignment.quantity / assignmentDays.length;
+  
+      for (const day of assignmentDays) {
+        const dayStart = startOfDay(day);
+  
+        // Calculate already assigned quantity on this day
+        const assignedOnDay = targetLine.assignments.reduce((sum, existingAssignment) => {
+          const existingStart = startOfDay(parseISO(existingAssignment.startDate));
+          const existingEnd = startOfDay(parseISO(existingAssignment.endDate));
+          if (isWithinInterval(dayStart, { start: existingStart, end: existingEnd })) {
+            const duration = differenceInDays(existingEnd, existingStart) + 1;
+            return sum + (existingAssignment.quantity / duration);
+          }
+          return sum;
+        }, 0);
+  
+        const availableCapacity = targetLine.dailyCap - assignedOnDay;
+  
+        if (dailyQuantity > availableCapacity) {
+          const message = `On ${format(day, 'MMM d')}, line ${targetLine.name} has only ${Math.floor(availableCapacity).toLocaleString()} units of capacity available, but ${Math.ceil(dailyQuantity).toLocaleString()} are required.`;
+          return { success: false, message };
         }
-
-        if (!targetLine || !unitId) {
-          toast({ variant: 'destructive', title: 'Error', description: `Production line ${assignment.lineId} not found.` });
-          continue;
-        }
-        
-        const assignedCapacityOnLine = targetLine.assignments.reduce((sum, a) => {
-            const existingInterval = {
-                start: startOfDay(parseISO(a.startDate)),
-                end: startOfDay(parseISO(a.endDate)),
-            };
-            if (areIntervalsOverlapping(assignmentInterval, existingInterval, { inclusive: true })) {
-                const duration = differenceInDays(existingInterval.end, existingInterval.start) + 1;
-                return sum + (a.quantity / duration);
-            }
-            return sum;
-        }, 0) * productionDays;
-        
-        const availableCapacity = (targetLine.dailyCap * productionDays) - assignedCapacityOnLine;
-
-        if (assignment.quantity > availableCapacity) {
-            const message = `The requested quantity of ${assignment.quantity.toLocaleString()} exceeds the remaining capacity of ${Math.round(availableCapacity).toLocaleString()}.`;
-            toast({
-                variant: 'destructive',
-                title: `Capacity Validation Failed for ${targetLine.name}`,
-                description: message,
-            });
-            return { success: false, message: message };
-        }
+      }
     }
-
-
+  
+    // --- State Update Phase ---
     // If all validations passed, proceed with state updates
-    let tempUnits = [...units];
+    let tempUnits = JSON.parse(JSON.stringify(units));
     let totalAssignedQuantity = 0;
-
+  
     for (const assignment of assignments) {
-       if(assignment.quantity <= 0) continue;
-
-        totalAssignedQuantity += assignment.quantity;
-        let unitIndex = -1;
-        let lineIndex = -1;
-
-        for (let i = 0; i < tempUnits.length; i++) {
-            const lineIdx = tempUnits[i].lines.findIndex((l) => l.id === assignment.lineId);
-            if (lineIdx !== -1) {
-                unitIndex = i;
-                lineIndex = lineIdx;
-                break;
-            }
+      if (assignment.quantity <= 0) continue;
+  
+      totalAssignedQuantity += assignment.quantity;
+      let unitIndex = -1;
+      let lineIndex = -1;
+  
+      for (let i = 0; i < tempUnits.length; i++) {
+        const lineIdx = tempUnits[i].lines.findIndex((l: ProductionLine) => l.id === assignment.lineId);
+        if (lineIdx !== -1) {
+          unitIndex = i;
+          lineIndex = lineIdx;
+          break;
         }
-
-        if (unitIndex !== -1 && lineIndex !== -1) {
-            const newAssignment: Assignment = {
-                id: `as-${Date.now()}-${Math.random()}`,
-                orderId,
-                order_num: order.order_num,
-                quantity: assignment.quantity,
-                startDate: format(dates.from, 'yyyy-MM-dd'),
-                endDate: format(dates.to, 'yyyy-MM-dd'),
-                tentative: order.tentative,
-            };
-
-            const newLines = [...tempUnits[unitIndex].lines];
-            newLines[lineIndex] = {
-                ...newLines[lineIndex],
-                assignments: [...newLines[lineIndex].assignments, newAssignment],
-            };
-            tempUnits[unitIndex] = {
-                ...tempUnits[unitIndex],
-                lines: newLines,
-            };
-        }
+      }
+  
+      if (unitIndex !== -1 && lineIndex !== -1) {
+        const newAssignment: Assignment = {
+          id: `as-${Date.now()}-${Math.random()}`,
+          orderId,
+          order_num: order.order_num,
+          quantity: assignment.quantity,
+          startDate: format(dates.from, 'yyyy-MM-dd'),
+          endDate: format(dates.to, 'yyyy-MM-dd'),
+          tentative: order.tentative,
+        };
+  
+        const newLines = [...tempUnits[unitIndex].lines];
+        newLines[lineIndex] = {
+          ...newLines[lineIndex],
+          assignments: [...newLines[lineIndex].assignments, newAssignment],
+        };
+        tempUnits[unitIndex] = {
+          ...tempUnits[unitIndex],
+          lines: newLines,
+        };
+      }
     }
-    
+  
     setUnits(tempUnits);
-
+  
     setOrders(prevOrders =>
       prevOrders.map(o =>
         o.id === orderId
@@ -269,7 +254,7 @@ export default function StitchFlowPage() {
           : o
       )
     );
-
+  
     toast({
       title: 'Success!',
       description: `Order ${order.order_num} assigned successfully.`,
