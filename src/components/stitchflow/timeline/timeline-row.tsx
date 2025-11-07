@@ -89,7 +89,7 @@ export default function TimelineRow({ line, days, monthStart, onUnassign }: Time
         {/* Row Header */}
         <div 
             className="text-sm p-2 sticky left-0 bg-card z-10 border-r border-b group-hover:bg-muted/50 flex flex-col justify-center"
-            style={{ height: `${rowHeight}px` }}
+            style={{ minHeight: `${rowHeight}px` }}
         >
             <p className="font-semibold truncate">{line.name}</p>
             <p className="text-xs text-muted-foreground truncate">{line.unitName}</p>
@@ -105,7 +105,7 @@ export default function TimelineRow({ line, days, monthStart, onUnassign }: Time
             style={{
                 gridTemplateColumns: `repeat(${days.length}, minmax(48px, 1fr))`,
                 gridAutoRows: `${trackHeight}px`,
-                height: `${rowHeight}px`,
+                minHeight: `${rowHeight}px`,
             }}
         >
             {/* Background droppable cells */}
