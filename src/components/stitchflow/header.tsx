@@ -6,7 +6,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Calendar as CalendarIcon, Filter, RotateCcw, PlusCircle, ChevronsRight, CalendarClock, Undo2 } from 'lucide-react';
+import { Calendar as CalendarIcon, Filter, RotateCcw, PlusCircle, ChevronsRight, CalendarClock, Undo2, Wand2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import type { Filters } from '@/app/page';
@@ -15,6 +15,7 @@ type AppHeaderProps = {
   onReset: () => void;
   onAddTentative: () => void;
   onOpenFilters: () => void;
+  onOpenAutoPlan: () => void;
   filters: Filters;
   setFilters: (filters: Filters) => void;
   uniqueCustomers: string[];
@@ -28,6 +29,7 @@ export default function AppHeader({
   onReset,
   onAddTentative,
   onOpenFilters,
+  onOpenAutoPlan,
   filters,
   setFilters,
   uniqueCustomers,
@@ -156,6 +158,10 @@ export default function AppHeader({
             <Button size="sm" className="h-9 bg-accent hover:bg-accent/90" onClick={onAddTentative}>
               <PlusCircle className="h-4 w-4 mr-2" />
               Tentative Order
+            </Button>
+             <Button size="sm" className="h-9" onClick={onOpenAutoPlan}>
+                <Wand2 className="mr-2 h-4 w-4" />
+                Auto-Plan
             </Button>
           </div>
         </div>
