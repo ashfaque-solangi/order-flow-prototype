@@ -353,7 +353,7 @@ export default function StitchFlowPage() {
         const dayStart = startOfDay(day);
         const existingAssignedOnDay = targetLine.assignments.reduce((sum, existingAssignment) => {
             // When moving within the same line, the original assignment is not part of the "existing" load
-            if (existingAssignment.id === assignment.id) return sum;
+            if (sourceLineId === targetLineId && existingAssignment.id === assignment.id) return sum;
 
             const existingStart = startOfDay(parseISO(existingAssignment.startDate));
             const existingEnd = startOfDay(parseISO(existingAssignment.endDate));
@@ -386,28 +386,43 @@ export default function StitchFlowPage() {
         if (!foundSourceLine || !foundTargetLine) return prevUnits;
 
         const originalAssignmentIdx = foundSourceLine.assignments.findIndex((a: Assignment) => a.id === assignment.id);
-        if (originalAssignmentIdx === -1) return prevUnits;
-
-        const originalAssignment = foundSourceLine.assignments[originalAssignmentIdx];
-        const remainingQuantity = originalAssignment.quantity - quantityToMove;
-
-        // Update or remove from source line
-        if (remainingQuantity > 0) {
-            foundSourceLine.assignments[originalAssignmentIdx].quantity = remainingQuantity;
-        } else {
-            foundSourceLine.assignments.splice(originalAssignmentIdx, 1);
+        if (originalAssignmentIdx === -1) {
+            // This can happen if a move is initiated within the same line. The source might be in a different line instance.
+            // Find the actual source line again in the newUnits array.
+            newUnits.forEach((u: Unit) => {
+                const line = u.lines.find((l: ProductionLine) => l.id === sourceLineId);
+                if (line) {
+                    const idx = line.assignments.findIndex((a: Assignment) => a.id === assignment.id);
+                    if (idx !== -1) {
+                        foundSourceLine = line;
+                    }
+                }
+            });
+            const newOriginalAssignmentIdx = foundSourceLine.assignments.findIndex((a: Assignment) => a.id === assignment.id);
+             if (newOriginalAssignmentIdx === -1) return prevUnits;
         }
 
-        // Add to target line
-        // We will not merge assignments on move, but create a new one to keep it simple.
-        // A more advanced implementation could check for mergable assignments.
+        const originalAssignment = foundSourceLine.assignments.find((a: Assignment) => a.id === assignment.id);
+        if (!originalAssignment) return prevUnits;
+
+        const remainingQuantity = originalAssignment.quantity - quantityToMove;
+        
+        // Update or remove from source line
+        if (remainingQuantity > 0) {
+            originalAssignment.quantity = remainingQuantity;
+        } else {
+            foundSourceLine.assignments = foundSourceLine.assignments.filter((a: Assignment) => a.id !== assignment.id);
+        }
+
         const newAssignment: Assignment = {
-            ...assignment,
+            ...originalAssignment,
             id: `as-${Date.now()}-${Math.random()}`,
             quantity: quantityToMove,
             startDate: format(newStartDate, 'yyyy-MM-dd'),
             endDate: format(newEndDate, 'yyyy-MM-dd'),
         };
+        
+        // Add to target line
         foundTargetLine.assignments.push(newAssignment);
         
         return newUnits;
@@ -438,14 +453,14 @@ const handleAutoPlan = (ordersToPlan: { orderId: string, quantity: number }[], d
 
       let assigned = false;
       
-      // Sort lines by utilization for every order to re-evaluate load
       const allLinesSorted = tempUnits.flatMap((unit: Unit) => unit.lines.map((line: ProductionLine) => {
           const totalCapacityInPeriod = line.dailyCap * planningDays.length;
           let assignedQuantityInPeriod = 0;
+          
           for (const day of planningDays) {
               assignedQuantityInPeriod += line.assignments.reduce((sum: number, a: Assignment) => {
-                  if (isWithinInterval(day, { start: parseISO(a.startDate), end: parseISO(a.endDate) })) {
-                      const duration = differenceInDays(parseISO(a.endDate), parseISO(a.startDate)) + 1;
+                  if (isWithinInterval(day, { start: startOfDay(parseISO(a.startDate)), end: startOfDay(parseISO(a.endDate)) })) {
+                      const duration = differenceInDays(startOfDay(parseISO(a.endDate)), startOfDay(parseISO(a.startDate))) + 1;
                       return sum + (a.quantity / duration);
                   }
                   return sum;
@@ -458,11 +473,10 @@ const handleAutoPlan = (ordersToPlan: { orderId: string, quantity: number }[], d
       for (const line of allLinesSorted) {
           if (line.dailyCap <= 0) continue;
 
-          const orderDailyQty = quantity / (differenceInDays(planningInterval.end, planningInterval.start) + 1);
-          if (orderDailyQty > line.dailyCap) continue;
-
           const requiredDays = Math.ceil(quantity / line.dailyCap);
-          if (requiredDays > planningDays.length) continue; 
+          if (requiredDays <= 0 || requiredDays > planningDays.length) continue; 
+
+          const dailyProductionRate = quantity / requiredDays;
 
           for (let i = 0; i <= planningDays.length - requiredDays; i++) {
               const slotStart = planningDays[i];
@@ -476,13 +490,13 @@ const handleAutoPlan = (ordersToPlan: { orderId: string, quantity: number }[], d
                   const dayStart = startOfDay(day);
                   const existingLoadOnDay = line.assignments.reduce((sum, existing) => {
                       if (isWithinInterval(dayStart, { start: startOfDay(parseISO(existing.startDate)), end: startOfDay(parseISO(existing.endDate)) })) {
-                          const duration = differenceInDays(parseISO(existing.endDate), parseISO(existing.startDate)) + 1;
+                          const duration = differenceInDays(startOfDay(parseISO(existing.endDate)), startOfDay(parseISO(existing.startDate))) + 1;
                           return sum + (existing.quantity / duration);
                       }
                       return sum;
                   }, 0);
                   
-                  if (existingLoadOnDay + (quantity / requiredDays) > line.dailyCap + 0.001) {
+                  if (existingLoadOnDay + dailyProductionRate > line.dailyCap + 0.001) {
                       slotIsViable = false;
                       break;
                   }
@@ -577,6 +591,10 @@ const handleAutoPlan = (ordersToPlan: { orderId: string, quantity: number }[], d
     return filteredOrders.filter(o => o.qty.remaining > 0).sort((a,b) => new Date(a.etd_date).getTime() - new Date(b.etd_date).getTime());
   }, [filteredOrders]);
 
+  const allAvailableOrders = useMemo(() => {
+    return orders.filter(o => o.qty.remaining > 0).sort((a,b) => new Date(a.etd_date).getTime() - new Date(b.etd_date).getTime());
+  }, [orders]);
+
   const selectedOrder = useMemo(() => {
     return orders.find(o => o.id === selectedOrderId) || null;
   }, [selectedOrderId, orders]);
@@ -665,7 +683,7 @@ const handleAutoPlan = (ordersToPlan: { orderId: string, quantity: number }[], d
             <AutoPlanModal
                 isOpen={isAutoPlanModalOpen}
                 onClose={() => setAutoPlanModalOpen(false)}
-                orders={availableOrders}
+                orders={allAvailableOrders}
                 onAutoPlan={handleAutoPlan}
             />
         )}
