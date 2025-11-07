@@ -39,10 +39,10 @@ The header is the central control panel for navigating and filtering the applica
 
 ### 1.2. Available Orders Section (`<OrdersSection />`)
 
-This section displays a horizontal, scrollable list of all unassigned or partially assigned orders that match the current filter criteria.
+This section displays a vertical, scrollable grid of all unassigned or partially assigned orders that match the current filter criteria.
 
 *   **Component**: `<OrderCard />`
-*   **Layout**: Uses a `ScrollArea` component for horizontal scrolling.
+*   **Layout**: A CSS Grid layout that wraps to show multiple orders per row. It is contained within a `ScrollArea` with a fixed height, allowing vertical scrolling when the number of orders exceeds the visible area (initially showing two rows).
 *   **Filtering**: Only displays orders where `order.qty.remaining > 0` and that pass all active filters from the header.
 *   **Sorting**: Orders should be sorted by their `etd_date` in ascending order.
 *   **Empty State**: If no orders match the criteria, a message like "No available orders match the current filters" should be displayed.
