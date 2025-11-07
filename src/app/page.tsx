@@ -151,7 +151,7 @@ export default function StitchFlowPage() {
 
   const handleAssignOrder = async (
     orderId: string,
-    assignments: { lineId: string; quantity: number }[],
+    newAssignments: { lineId: string; quantity: number }[],
     dates: { from: Date; to: Date }
   ): Promise<{ success: boolean; message?: string }> => {
     const order = orders.find((o) => o.id === orderId);
@@ -159,17 +159,18 @@ export default function StitchFlowPage() {
   
     const allLines = units.flatMap(u => u.lines);
     const assignmentDays = eachDayOfInterval({ start: dates.from, end: dates.to });
+    const durationInDays = differenceInDays(dates.to, dates.from) + 1;
   
     // --- Validation Phase ---
-    for (const assignment of assignments) {
-      if (assignment.quantity <= 0) continue;
+    for (const newAssignment of newAssignments) {
+      if (newAssignment.quantity <= 0) continue;
   
-      const targetLine = allLines.find((l) => l.id === assignment.lineId);
+      const targetLine = allLines.find((l) => l.id === newAssignment.lineId);
       if (!targetLine) {
-        return { success: false, message: `Production line ${assignment.lineId} not found.` };
+        return { success: false, message: `Production line ${newAssignment.lineId} not found.` };
       }
       
-      const newAssignmentDailyQty = assignment.quantity / assignmentDays.length;
+      const newAssignmentDailyQty = newAssignment.quantity / durationInDays;
   
       for (const day of assignmentDays) {
         const dayStart = startOfDay(day);
@@ -181,19 +182,16 @@ export default function StitchFlowPage() {
           
           if (isWithinInterval(dayStart, { start: existingStart, end: existingEnd })) {
             const duration = differenceInDays(existingEnd, existingStart) + 1;
-            // Add the daily quantity of the existing assignment
             return sum + (existingAssignment.quantity / duration);
           }
           return sum;
         }, 0);
   
         const projectedTotal = existingAssignedOnDay + newAssignmentDailyQty;
-
-        // Epsilon for floating point comparisons
         const epsilon = 0.001; 
   
         if (projectedTotal > targetLine.dailyCap + epsilon) {
-          const message = `On ${format(day, 'MMM d')}, line ${targetLine.name} will exceed its capacity. It has ${Math.floor(existingAssignedOnDay).toLocaleString()} units assigned, and adding ${Math.ceil(newAssignmentDailyQty).toLocaleString()} units would reach ${Math.ceil(projectedTotal).toLocaleString()} / ${targetLine.dailyCap.toLocaleString()} capacity.`;
+          const message = `On ${format(day, 'MMM d')}, line ${targetLine.name} will exceed its daily capacity. It has ${Math.floor(existingAssignedOnDay).toLocaleString()} units assigned. Adding ${Math.ceil(newAssignmentDailyQty).toLocaleString()} units would reach ${Math.ceil(projectedTotal).toLocaleString()} of ${targetLine.dailyCap.toLocaleString()} available.`;
           return { success: false, message };
         }
       }
@@ -203,7 +201,7 @@ export default function StitchFlowPage() {
     let tempUnits = JSON.parse(JSON.stringify(units));
     let totalAssignedQuantity = 0;
   
-    for (const assignment of assignments) {
+    for (const assignment of newAssignments) {
       if (assignment.quantity <= 0) continue;
   
       totalAssignedQuantity += assignment.quantity;
@@ -341,69 +339,80 @@ export default function StitchFlowPage() {
 
     if (!sourceLine || !targetLine) {
         const message = 'Could not find source or target line.';
-        toast({ variant: 'destructive', title: 'Error', description: message });
         return { success: false, message };
     }
     
-    const duration = differenceInDays(startOfDay(parseISO(assignment.endDate)), startOfDay(parseISO(assignment.startDate)));
-    const newEndDate = new Date(newStartDate);
-    newEndDate.setDate(newEndDate.getDate() + duration);
+    const durationDays = differenceInDays(startOfDay(parseISO(assignment.endDate)), startOfDay(parseISO(assignment.startDate))) + 1;
+    const newEndDate = addDays(newStartDate, durationDays - 1);
+    const newInterval = { start: startOfDay(newStartDate), end: startOfDay(newEndDate) };
 
-    // Capacity check on target line for the new date range
-    const totalCapacityOnTarget = targetLine.dailyCap * (duration + 1);
-    const assignedOnTargetDuringDrop = targetLine.assignments
-        .filter(a => a.id !== assignment.id) // Exclude the assignment being moved
-        .reduce((sum, a) => {
-            const aStart = startOfDay(parseISO(a.startDate));
-            const aEnd = startOfDay(parseISO(a.endDate));
-            if(isWithinInterval(startOfDay(newStartDate), {start: aStart, end: aEnd}) || isWithinInterval(startOfDay(newEndDate), {start: aStart, end: aEnd})) {
-                const assignmentDuration = differenceInDays(aEnd, aStart) + 1;
-                return sum + (a.quantity / assignmentDuration);
+    // --- Validation Phase ---
+    const dailyQtyToMove = quantityToMove / durationDays;
+
+    for (const day of eachDayOfInterval(newInterval)) {
+        const dayStart = startOfDay(day);
+        const existingAssignedOnDay = targetLine.assignments.reduce((sum, existingAssignment) => {
+            // Exclude the original assignment if it's on the same line
+            if (existingAssignment.id === assignment.id) return sum;
+
+            const existingStart = startOfDay(parseISO(existingAssignment.startDate));
+            const existingEnd = startOfDay(parseISO(existingAssignment.endDate));
+            if (isWithinInterval(dayStart, { start: existingStart, end: existingEnd })) {
+                const duration = differenceInDays(existingEnd, existingStart) + 1;
+                return sum + (existingAssignment.quantity / duration);
             }
             return sum;
-        }, 0) * (duration + 1);
-    
-    const availableCapacity = totalCapacityOnTarget - assignedOnTargetDuringDrop;
+        }, 0);
 
-    if (quantityToMove > availableCapacity) {
-        const message = `Not enough capacity on ${targetLine.name}. Required: ${quantityToMove.toLocaleString()}, Available: ${Math.round(availableCapacity).toLocaleString()}`;
-        toast({ variant: 'destructive', title: 'Capacity Exceeded', description: message });
-        return { success: false, message };
+        const projectedTotal = existingAssignedOnDay + dailyQtyToMove;
+        const epsilon = 0.001;
+
+        if (projectedTotal > targetLine.dailyCap + epsilon) {
+            const message = `On ${format(day, 'MMM d')}, line ${targetLine.name} will exceed its daily capacity. Moving ${Math.ceil(dailyQtyToMove).toLocaleString()} units would result in ${Math.ceil(projectedTotal).toLocaleString()} / ${targetLine.dailyCap.toLocaleString()} capacity.`;
+            return { success: false, message };
+        }
     }
     
+    // --- State Update Phase ---
     setUnits(prevUnits => {
         let newUnits = JSON.parse(JSON.stringify(prevUnits));
 
         let sourceUnit = newUnits.find((u: Unit) => u.lines.some(l => l.id === sourceLineId));
         let targetUnit = newUnits.find((u: Unit) => u.lines.some(l => l.id === targetLineId));
         
-        let sourceLine = sourceUnit?.lines.find((l: ProductionLine) => l.id === sourceLineId);
-        let targetLine = targetUnit?.lines.find((l: ProductionLine) => l.id === targetLineId);
+        let foundSourceLine = sourceUnit?.lines.find((l: ProductionLine) => l.id === sourceLineId);
+        let foundTargetLine = targetUnit?.lines.find((l: ProductionLine) => l.id === targetLineId);
 
-        if (!sourceLine || !targetLine) return prevUnits;
+        if (!foundSourceLine || !foundTargetLine) return prevUnits;
 
-        const originalAssignment = sourceLine.assignments.find((a: Assignment) => a.id === assignment.id);
-        if (!originalAssignment) return prevUnits;
+        const originalAssignmentIdx = foundSourceLine.assignments.findIndex((a: Assignment) => a.id === assignment.id);
+        if (originalAssignmentIdx === -1) return prevUnits;
 
+        const originalAssignment = foundSourceLine.assignments[originalAssignmentIdx];
         const remainingQuantity = originalAssignment.quantity - quantityToMove;
 
         // Update or remove from source line
         if (remainingQuantity > 0) {
-            originalAssignment.quantity = remainingQuantity;
+            foundSourceLine.assignments[originalAssignmentIdx].quantity = remainingQuantity;
         } else {
-            sourceLine.assignments = sourceLine.assignments.filter((a: Assignment) => a.id !== assignment.id);
+            foundSourceLine.assignments.splice(originalAssignmentIdx, 1);
         }
 
         // Add to target line
-        const existingAssignmentOnTarget = targetLine.assignments.find(
+        const existingAssignmentOnTarget = foundTargetLine.assignments.find(
             (a: Assignment) => a.orderId === assignment.orderId && a.startDate === format(newStartDate, 'yyyy-MM-dd') && a.endDate === format(newEndDate, 'yyyy-MM-dd')
         );
 
         if (sourceLineId === targetLineId && existingAssignmentOnTarget && originalAssignment.startDate === format(newStartDate, 'yyyy-MM-dd')) {
-            // It's the same assignment, do nothing extra
+            // This case handles moving within the same line to the same dates, which shouldn't happen with splits,
+            // but as a safeguard, we find the assignment and update its quantity.
+             const assignmentToUpdate = foundTargetLine.assignments.find((a:Assignment) => a.id === assignment.id);
+             if(assignmentToUpdate) assignmentToUpdate.quantity += quantityToMove;
         } else if (existingAssignmentOnTarget) {
+            // Merging with an existing assignment for the same order on the same dates
             existingAssignmentOnTarget.quantity += quantityToMove;
         } else {
+            // Creating a new assignment
             const newAssignment: Assignment = {
                 ...assignment,
                 id: `as-${Date.now()}-${Math.random()}`,
@@ -411,7 +420,7 @@ export default function StitchFlowPage() {
                 startDate: format(newStartDate, 'yyyy-MM-dd'),
                 endDate: format(newEndDate, 'yyyy-MM-dd'),
             };
-            targetLine.assignments.push(newAssignment);
+            foundTargetLine.assignments.push(newAssignment);
         }
         
         return newUnits;
