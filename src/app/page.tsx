@@ -352,8 +352,8 @@ export default function StitchFlowPage() {
     for (const day of eachDayOfInterval(newInterval)) {
         const dayStart = startOfDay(day);
         const existingAssignedOnDay = targetLine.assignments.reduce((sum, existingAssignment) => {
-            // Exclude the original assignment if it's on the same line
-            if (existingAssignment.id === assignment.id) return sum;
+            // Exclude the original assignment if it's on the same line (it's being moved)
+            if (existingAssignment.id === assignment.id && sourceLineId === targetLineId) return sum;
 
             const existingStart = startOfDay(parseISO(existingAssignment.startDate));
             const existingEnd = startOfDay(parseISO(existingAssignment.endDate));
@@ -368,7 +368,7 @@ export default function StitchFlowPage() {
         const epsilon = 0.001;
 
         if (projectedTotal > targetLine.dailyCap + epsilon) {
-            const message = `On ${format(day, 'MMM d')}, line ${targetLine.name} will exceed its daily capacity. Moving ${Math.ceil(dailyQtyToMove).toLocaleString()} units would result in ${Math.ceil(projectedTotal).toLocaleString()} / ${targetLine.dailyCap.toLocaleString()} capacity.`;
+            const message = `On ${format(day, 'MMM d')}, line ${targetLine.name} will exceed its daily capacity. Moving ${Math.ceil(dailyQtyToMove).toLocaleString()} units/day would result in ${Math.ceil(projectedTotal).toLocaleString()} / ${targetLine.dailyCap.toLocaleString()} capacity.`;
             return { success: false, message };
         }
     }
@@ -399,29 +399,16 @@ export default function StitchFlowPage() {
         }
 
         // Add to target line
-        const existingAssignmentOnTarget = foundTargetLine.assignments.find(
-            (a: Assignment) => a.orderId === assignment.orderId && a.startDate === format(newStartDate, 'yyyy-MM-dd') && a.endDate === format(newEndDate, 'yyyy-MM-dd')
-        );
-
-        if (sourceLineId === targetLineId && existingAssignmentOnTarget && originalAssignment.startDate === format(newStartDate, 'yyyy-MM-dd')) {
-            // This case handles moving within the same line to the same dates, which shouldn't happen with splits,
-            // but as a safeguard, we find the assignment and update its quantity.
-             const assignmentToUpdate = foundTargetLine.assignments.find((a:Assignment) => a.id === assignment.id);
-             if(assignmentToUpdate) assignmentToUpdate.quantity += quantityToMove;
-        } else if (existingAssignmentOnTarget) {
-            // Merging with an existing assignment for the same order on the same dates
-            existingAssignmentOnTarget.quantity += quantityToMove;
-        } else {
-            // Creating a new assignment
-            const newAssignment: Assignment = {
-                ...assignment,
-                id: `as-${Date.now()}-${Math.random()}`,
-                quantity: quantityToMove,
-                startDate: format(newStartDate, 'yyyy-MM-dd'),
-                endDate: format(newEndDate, 'yyyy-MM-dd'),
-            };
-            foundTargetLine.assignments.push(newAssignment);
-        }
+        // We will not merge assignments on move, but create a new one to keep it simple.
+        // A more advanced implementation could check for mergable assignments.
+        const newAssignment: Assignment = {
+            ...assignment,
+            id: `as-${Date.now()}-${Math.random()}`,
+            quantity: quantityToMove,
+            startDate: format(newStartDate, 'yyyy-MM-dd'),
+            endDate: format(newEndDate, 'yyyy-MM-dd'),
+        };
+        foundTargetLine.assignments.push(newAssignment);
         
         return newUnits;
     });
@@ -452,9 +439,8 @@ const handleAutoPlan = (ordersToPlan: { orderId: string, quantity: number }[], d
             }
             return sum;
         }, 0);
-        const availableCapacity = totalCapacityInPeriod - assignedQuantityInPeriod;
         const utilization = totalCapacityInPeriod > 0 ? (assignedQuantityInPeriod / totalCapacityInPeriod) * 100 : 0;
-        return { ...line, unitId: unit.id, availableCapacity, utilization };
+        return { ...line, unitId: unit.id, utilization };
     })).sort((a, b) => a.utilization - b.utilization);
 
     let assignmentsMade = 0;
