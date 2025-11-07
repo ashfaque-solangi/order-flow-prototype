@@ -12,12 +12,13 @@ import TentativeOrderModal from '@/components/stitchflow/modals/tentative-order-
 import AutoPlanModal from '@/components/stitchflow/modals/auto-plan-modal';
 import FiltersModal from '@/components/stitchflow/modals/filters-modal';
 import { useToast } from '@/hooks/use-toast';
-import { format, differenceInDays, isWithinInterval, startOfDay, parseISO, areIntervalsOverlapping, getDaysInMonth, startOfMonth, endOfMonth } from 'date-fns';
+import { format, differenceInDays, isWithinInterval, startOfDay, parseISO, areIntervalsOverlapping, getDaysInMonth, startOfMonth, endOfMonth, addDays, max, eachDayOfInterval } from 'date-fns';
 import { DragEndEvent, DragStartEvent, DragOverlay } from '@dnd-kit/core';
 import type { ProductionLine, Assignment } from '@/lib/data';
 import { ClientOnlyDndProvider } from '@/components/stitchflow/dnd-provider';
 import OrderCard from '@/components/stitchflow/order-card';
 import TimelineAssignment from '@/components/stitchflow/timeline/timeline-assignment';
+import { DateRange } from 'react-day-picker';
 
 
 export type Filters = {
@@ -430,102 +431,103 @@ export default function StitchFlowPage() {
     return { success: true };
 };
 
-const handleAutoPlan = (
-    ordersToPlan: { orderId: string, quantity: number }[],
-    month: Date
-  ) => {
-    let tempOrders = [...orders];
-    let tempUnits = [...units];
-    const monthStart = startOfMonth(month);
-    const monthEnd = endOfMonth(month);
-    const daysInMonth = getDaysInMonth(month);
+const handleAutoPlan = (ordersToPlan: { orderId: string, quantity: number }[], dateRange: DateRange) => {
+    if (!dateRange.from || !dateRange.to) {
+        toast({ variant: 'destructive', title: 'Auto-Plan Error', description: 'A valid date range is required for auto-planning.' });
+        return;
+    }
 
-    const allLinesWithCapacity = tempUnits.flatMap(unit => unit.lines.map(line => {
-      const totalCapacity = line.dailyCap * daysInMonth;
-      const assignedQuantity = line.assignments.reduce((sum, a) => {
-        const aStart = parseISO(a.startDate);
-        const aEnd = parseISO(a.endDate);
-        if (areIntervalsOverlapping({ start: monthStart, end: monthEnd }, { start: aStart, end: aEnd })) {
-          // This is a simplified calculation. A more precise one would be needed for real-world use.
-          return sum + a.quantity;
-        }
-        return sum;
-      }, 0);
-      const availableCapacity = totalCapacity - assignedQuantity;
-      const utilization = totalCapacity > 0 ? (assignedQuantity / totalCapacity) * 100 : 0;
-      return { ...line, unitId: unit.id, availableCapacity, utilization };
-    })).sort((a, b) => a.utilization - b.utilization); // Sort by lowest utilization first
+    let tempOrders = JSON.parse(JSON.stringify(orders));
+    let tempUnits = JSON.parse(JSON.stringify(units));
+    
+    const planningInterval = { start: startOfDay(dateRange.from), end: startOfDay(dateRange.to) };
+    const planningDays = eachDayOfInterval(planningInterval);
+
+    const allLinesWithCapacity = tempUnits.flatMap((unit: Unit) => unit.lines.map((line: ProductionLine) => {
+        const totalCapacityInPeriod = line.dailyCap * planningDays.length;
+        const assignedQuantityInPeriod = line.assignments.reduce((sum: number, a: Assignment) => {
+            const aStart = parseISO(a.startDate);
+            const aEnd = parseISO(a.endDate);
+            if (areIntervalsOverlapping(planningInterval, { start: aStart, end: aEnd })) {
+                return sum + a.quantity;
+            }
+            return sum;
+        }, 0);
+        const availableCapacity = totalCapacityInPeriod - assignedQuantityInPeriod;
+        const utilization = totalCapacityInPeriod > 0 ? (assignedQuantityInPeriod / totalCapacityInPeriod) * 100 : 0;
+        return { ...line, unitId: unit.id, availableCapacity, utilization };
+    })).sort((a, b) => a.utilization - b.utilization);
 
     let assignmentsMade = 0;
     
     for (const { orderId, quantity } of ordersToPlan) {
-      const order = tempOrders.find(o => o.id === orderId);
-      if (!order || quantity <= 0) continue;
+        const order = tempOrders.find((o: Order) => o.id === orderId);
+        if (!order || quantity <= 0) continue;
 
-      let assigned = false;
-      for (const line of allLinesWithCapacity) {
-        const requiredDays = Math.ceil(quantity / line.dailyCap);
-        if (line.availableCapacity >= quantity && requiredDays <= daysInMonth) {
-          // Simplistic assignment: finds the first available slot.
-          // A real-world scenario would need a much more complex algorithm to find empty date ranges.
-          // For this prototype, we'll just assign it to the start of the month.
-          const startDate = monthStart;
-          const endDate = new Date(startDate);
-          endDate.setDate(startDate.getDate() + requiredDays - 1);
+        let assigned = false;
+        for (const line of allLinesWithCapacity) {
+            if (line.dailyCap <= 0) continue;
 
-          // Check if this new slot overlaps with anything on this line
-          const newInterval = { start: startDate, end: endDate };
-          const isOverlapping = line.assignments.some(a => areIntervalsOverlapping(newInterval, { start: parseISO(a.startDate), end: parseISO(a.endDate) }));
-          
-          if (!isOverlapping) {
-             const newAssignment: Assignment = {
-                id: `as-${Date.now()}-${Math.random()}`,
-                orderId,
-                order_num: order.order_num,
-                quantity,
-                startDate: format(startDate, 'yyyy-MM-dd'),
-                endDate: format(endDate, 'yyyy-MM-dd'),
-                tentative: order.tentative,
-            };
+            const requiredDays = Math.ceil(quantity / line.dailyCap);
+            if (requiredDays > planningDays.length) continue; // Not enough time in the whole period
 
-            // Update units
-            const unitIndex = tempUnits.findIndex(u => u.id === line.unitId);
-            const lineIndex = tempUnits[unitIndex].lines.findIndex(l => l.id === line.id);
-            tempUnits[unitIndex].lines[lineIndex].assignments.push(newAssignment);
-            
-            // Update order
-            const orderIndex = tempOrders.findIndex(o => o.id === orderId);
-            const currentOrder = tempOrders[orderIndex];
-            const newAssigned = currentOrder.qty.assigned + quantity;
-            currentOrder.qty.assigned = newAssigned;
-            currentOrder.qty.remaining = currentOrder.qty.total - newAssigned;
-            currentOrder.status = currentOrder.qty.remaining > 0 ? 'Partially Assigned' : 'Fully Assigned';
+            // Find an available slot of `requiredDays`
+            for (let i = 0; i <= planningDays.length - requiredDays; i++) {
+                const potentialStart = planningDays[i];
+                const potentialEnd = addDays(potentialStart, requiredDays - 1);
+                const newInterval = { start: potentialStart, end: potentialEnd };
 
-            line.availableCapacity -= quantity; // Update available capacity for next iteration
-            assigned = true;
-            assignmentsMade++;
-            break; // Move to next order
-          }
+                const isOverlapping = line.assignments.some((a: Assignment) => 
+                    areIntervalsOverlapping(newInterval, { start: parseISO(a.startDate), end: parseISO(a.endDate) })
+                );
+
+                if (!isOverlapping) {
+                    const newAssignment: Assignment = {
+                        id: `as-${Date.now()}-${Math.random()}`,
+                        orderId,
+                        order_num: order.order_num,
+                        quantity,
+                        startDate: format(potentialStart, 'yyyy-MM-dd'),
+                        endDate: format(potentialEnd, 'yyyy-MM-dd'),
+                        tentative: order.tentative,
+                    };
+                    
+                    line.assignments.push(newAssignment);
+                    
+                    const orderIndex = tempOrders.findIndex((o: Order) => o.id === orderId);
+                    const currentOrder = tempOrders[orderIndex];
+                    const newAssigned = currentOrder.qty.assigned + quantity;
+                    currentOrder.qty.assigned = newAssigned;
+                    currentOrder.qty.remaining = currentOrder.qty.total - newAssigned;
+                    currentOrder.status = currentOrder.qty.remaining > 0 ? 'Partially Assigned' : 'Fully Assigned';
+
+                    assigned = true;
+                    assignmentsMade++;
+                    break; 
+                }
+            }
+            if (assigned) break;
         }
-      }
-      if (!assigned) {
-        toast({
-          variant: 'destructive',
-          title: `Planning Failed for ${order.order_num}`,
-          description: `Could not find a suitable line and time slot for the requested quantity of ${quantity.toLocaleString()}.`,
-        });
-      }
+
+        if (!assigned) {
+            toast({
+                variant: 'destructive',
+                title: `Planning Failed for ${order.order_num}`,
+                description: `Could not find a suitable continuous slot for ${quantity.toLocaleString()} units within the selected dates.`,
+            });
+        }
     }
 
     if (assignmentsMade > 0) {
-      setOrders(tempOrders);
-      setUnits(tempUnits);
-      toast({
-        title: 'Auto-Plan Complete!',
-        description: `Successfully created ${assignmentsMade} new assignment(s).`,
-      });
+        setOrders(tempOrders);
+        setUnits(tempUnits);
+        toast({
+            title: 'Auto-Plan Complete!',
+            description: `Successfully created ${assignmentsMade} new assignment(s).`,
+        });
     }
-  };
+};
+
   
   const uniqueFilterValues = useMemo(() => {
     const customers = [...new Set(initialOrders.map(o => o.customer))];

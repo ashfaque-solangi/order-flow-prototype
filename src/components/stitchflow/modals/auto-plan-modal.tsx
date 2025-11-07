@@ -16,11 +16,13 @@ import { Order } from '@/lib/data';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
-import { format, parseISO } from 'date-fns';
-import { Wand2, AlertCircle, CalendarClock, ArrowLeft, Loader2, ArrowRight } from 'lucide-react';
+import { format, parseISO, addDays } from 'date-fns';
+import { Wand2, AlertCircle, Calendar as CalendarIcon, ArrowLeft, Loader2, ArrowRight } from 'lucide-react';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
+import { DateRange } from 'react-day-picker';
+import { cn } from '@/lib/utils';
 
 type OrderToPlan = {
   orderId: string;
@@ -37,14 +39,17 @@ type AutoPlanModalProps = {
   isOpen: boolean;
   onClose: () => void;
   orders: Order[];
-  onAutoPlan: (orders: {orderId: string, quantity: number}[], month: Date) => void;
+  onAutoPlan: (orders: {orderId: string, quantity: number}[], dateRange: DateRange) => void;
 };
 
 export default function AutoPlanModal({ isOpen, onClose, orders, onAutoPlan }: AutoPlanModalProps) {
   const [step, setStep] = useState(1);
   const [selectedOrders, setSelectedOrders] = useState<Record<string, boolean>>({});
   const [ordersToPlan, setOrdersToPlan] = useState<OrderToPlan[]>([]);
-  const [targetMonth, setTargetMonth] = useState<Date>(new Date());
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
+    from: new Date(),
+    to: addDays(new Date(), 30),
+  });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -53,7 +58,7 @@ export default function AutoPlanModal({ isOpen, onClose, orders, onAutoPlan }: A
       setStep(1);
       setSelectedOrders({});
       setOrdersToPlan([]);
-      setTargetMonth(new Date());
+      setDateRange({ from: new Date(), to: addDays(new Date(), 30) });
       setIsSubmitting(false);
       setError(null);
     }
@@ -94,6 +99,10 @@ export default function AutoPlanModal({ isOpen, onClose, orders, onAutoPlan }: A
   };
 
   const handleSubmit = () => {
+    if (!dateRange?.from || !dateRange?.to) {
+      setError("Please select a valid date range for planning.");
+      return;
+    }
     const hasInvalidQuantities = ordersToPlan.some(o => o.quantityToAssign <= 0 || o.quantityToAssign > o.remainingQty);
     if (hasInvalidQuantities) {
         setError("Please ensure all quantities are greater than zero and do not exceed the remaining quantity for each order.");
@@ -106,7 +115,7 @@ export default function AutoPlanModal({ isOpen, onClose, orders, onAutoPlan }: A
     const finalPlan = ordersToPlan.map(({orderId, quantityToAssign}) => ({orderId, quantity: quantityToAssign}));
     
     try {
-      onAutoPlan(finalPlan, targetMonth);
+      onAutoPlan(finalPlan, dateRange);
       onClose();
     } catch (e: any) {
         setError(e.message || "An unexpected error occurred.");
@@ -127,7 +136,7 @@ export default function AutoPlanModal({ isOpen, onClose, orders, onAutoPlan }: A
 
   const stepDescriptions: { [key: number]: string } = {
     1: 'Choose which available orders you would like the system to automatically assign to production lines.',
-    2: 'Review quantities, select a target month, and run the auto-planner.',
+    2: 'Review quantities, select a planning period, and run the auto-planner.',
   };
 
 
@@ -207,23 +216,36 @@ export default function AutoPlanModal({ isOpen, onClose, orders, onAutoPlan }: A
                     </div>
                     <div className="space-y-4">
                         <div className="space-y-2 p-3 border rounded-lg">
-                            <Label className="text-base font-semibold">2. Select Target Month</Label>
-                             <Popover>
+                            <Label className="text-base font-semibold">2. Select Planning Period</Label>
+                            <Popover>
                                 <PopoverTrigger asChild>
-                                    <Button variant="outline" className="w-full justify-start">
-                                    <CalendarClock className="h-4 w-4 mr-2" />
-                                    {format(targetMonth, 'MMMM yyyy')}
+                                    <Button
+                                    id="date"
+                                    variant={"outline"}
+                                    className={cn("w-full justify-start text-left font-normal", !dateRange && "text-muted-foreground")}
+                                    >
+                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                    {dateRange?.from ? (
+                                        dateRange.to ? (
+                                        <>
+                                            {format(dateRange.from, "LLL dd, y")} - {format(dateRange.to, "LLL dd, y")}
+                                        </>
+                                        ) : (
+                                        format(dateRange.from, "LLL dd, y")
+                                        )
+                                    ) : (
+                                        <span>Pick a date range</span>
+                                    )}
                                     </Button>
                                 </PopoverTrigger>
                                 <PopoverContent className="w-auto p-0" align="start">
                                     <Calendar
-                                    mode="single"
-                                    selected={targetMonth}
-                                    onSelect={(date) => date && setTargetMonth(date)}
                                     initialFocus
-                                    captionLayout="dropdown-buttons"
-                                    fromYear={2023}
-                                    toYear={2028}
+                                    mode="range"
+                                    defaultMonth={dateRange?.from}
+                                    selected={dateRange}
+                                    onSelect={setDateRange}
+                                    numberOfMonths={2}
                                     />
                                 </PopoverContent>
                             </Popover>
