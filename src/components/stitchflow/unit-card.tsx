@@ -10,6 +10,7 @@ import { X, Factory } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
 import { useDroppable } from '@dnd-kit/core';
 import { cn } from '@/lib/utils';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 type UnitCardProps = {
   unit: Unit;
@@ -25,10 +26,22 @@ export default function UnitCard({ unit, onUnassign }: UnitCardProps) {
     },
   });
 
-  const assignedOrders = useMemo(() => {
-    return unit.lines.flatMap(line => 
+  const groupedAssignments = useMemo(() => {
+    const assignments = unit.lines.flatMap(line => 
       line.assignments.map(a => ({...a, lineId: line.id, lineName: line.name }))
-    ).sort((a,b) => a.order_num.localeCompare(b.order_num));
+    );
+
+    const groups: Record<string, { totalQuantity: number, details: typeof assignments }> = {};
+
+    assignments.forEach(a => {
+        if (!groups[a.order_num]) {
+            groups[a.order_num] = { totalQuantity: 0, details: [] };
+        }
+        groups[a.order_num].totalQuantity += a.quantity;
+        groups[a.order_num].details.push(a);
+    });
+
+    return Object.entries(groups).sort((a, b) => a[0].localeCompare(b[0]));
   }, [unit]);
 
   const { totalCapacity, totalAssigned } = useMemo(() => {
@@ -66,24 +79,33 @@ export default function UnitCard({ unit, onUnassign }: UnitCardProps) {
       <CardFooter className="py-2 flex-1 flex flex-col min-h-0">
         <ScrollArea className="w-full h-full pr-3 -mr-3">
           <div className="space-y-2">
-          {assignedOrders.length > 0 ? (
-            assignedOrders.map(a => (
-              <div key={a.id} className="flex items-center justify-between text-sm p-2 rounded-md bg-slate-100 border shadow-sm">
-                <div className="flex flex-col truncate w-full">
-                  <span className="font-medium truncate" title={a.order_num}>{a.order_num}</span>
-                  <span className="text-xs text-muted-foreground">{a.lineName}</span>
-                </div>
-                <Badge className="mx-2 shrink-0">{a.quantity.toLocaleString()}</Badge>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                  onClick={() => onUnassign(a.orderId, a.id, a.lineId)}
-                >
-                  <X className="h-3 w-3" />
-                </Button>
-              </div>
-            ))
+          {groupedAssignments.length > 0 ? (
+            <Accordion type="multiple" className="w-full">
+              {groupedAssignments.map(([orderNum, group]) => (
+                 <AccordionItem value={orderNum} key={orderNum} className="border-b-0">
+                    <AccordionTrigger className="flex items-center justify-between text-sm p-2 rounded-md bg-slate-100 border shadow-sm hover:no-underline [&[data-state=open]]:rounded-b-none">
+                        <span className="font-medium truncate flex-1 text-left" title={orderNum}>{orderNum}</span>
+                        <Badge className="mx-2 shrink-0">{group.totalQuantity.toLocaleString()}</Badge>
+                    </AccordionTrigger>
+                    <AccordionContent className="p-2 pt-0 bg-slate-50 rounded-b-md border border-t-0 shadow-sm">
+                        {group.details.map(a => (
+                            <div key={a.id} className="flex items-center justify-between text-sm py-1.5 border-b last:border-b-0">
+                                <span className="text-xs text-muted-foreground">{a.lineName}</span>
+                                <Badge variant="outline" className="mx-2 shrink-0 bg-white">{a.quantity.toLocaleString()}</Badge>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                                    onClick={() => onUnassign(a.orderId, a.id, a.lineId)}
+                                    >
+                                    <X className="h-3 w-3" />
+                                </Button>
+                            </div>
+                        ))}
+                    </AccordionContent>
+                 </AccordionItem>
+              ))}
+            </Accordion>
           ) : (
             <p className="text-sm text-muted-foreground text-center py-4">No orders assigned.</p>
           )}
