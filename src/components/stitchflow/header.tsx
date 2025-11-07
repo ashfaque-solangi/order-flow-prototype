@@ -6,8 +6,8 @@ import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { Calendar as CalendarIcon, Filter, RotateCcw, PlusCircle, ChevronsRight, CalendarClock, Undo2, Wand2 } from 'lucide-react';
-import { format } from 'date-fns';
+import { Calendar as CalendarIcon, Filter, RotateCcw, PlusCircle, ChevronsRight, CalendarClock, Undo2, Wand2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { format, addMonths } from 'date-fns';
 import { cn } from '@/lib/utils';
 import type { Filters } from '@/app/page';
 
@@ -116,6 +116,15 @@ export default function AppHeader({
           <Separator orientation="vertical" className="h-6 mx-2" />
           
           <div className="flex items-center gap-2">
+             <Button
+              variant="outline"
+              size="icon"
+              className="h-9 w-9"
+              onClick={() => setSelectedMonth(addMonths(selectedMonth, -1))}
+            >
+              <ChevronLeft className="h-4 w-4" />
+              <span className="sr-only">Previous Month</span>
+            </Button>
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="outline" size="sm" className="h-9 w-[160px] justify-start">
@@ -136,6 +145,15 @@ export default function AppHeader({
                 />
               </PopoverContent>
             </Popover>
+             <Button
+              variant="outline"
+              size="icon"
+              className="h-9 w-9"
+              onClick={() => setSelectedMonth(addMonths(selectedMonth, 1))}
+            >
+              <ChevronRight className="h-4 w-4" />
+              <span className="sr-only">Next Month</span>
+            </Button>
             <Button
               variant="secondary"
               size="sm"
