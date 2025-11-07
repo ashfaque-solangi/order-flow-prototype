@@ -34,7 +34,7 @@ export default function OrderCard({ order, isDragging }: OrderCardProps) {
       ref={isAssignable ? setNodeRef : null}
       style={style}
       className={cn(
-        "w-full min-w-[260px] shrink-0 flex flex-col transition-shadow hover:shadow-lg",
+        "w-full min-w-[260px] shrink-0 flex flex-col transition-shadow hover:shadow-lg h-[170px]",
         (dndIsDragging || isDragging) && "shadow-2xl z-50 scale-105",
         !isAssignable && "opacity-60 bg-slate-50",
         order.tentative && "border-dashed border-amber-500/80",
@@ -81,5 +81,3 @@ export default function OrderCard({ order, isDragging }: OrderCardProps) {
     </Card>
   );
 }
-
-    

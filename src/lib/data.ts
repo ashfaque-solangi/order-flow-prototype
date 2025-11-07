@@ -300,4 +300,43 @@ export const initialUnits: Unit[] = [
       { id: 'line-3A', name: 'Cutting Line A', dailyCap: 1000, assignments: [] },
     ],
   },
+  {
+    id: 'unit-4',
+    name: 'Finishing Unit X',
+    lines: [
+      { id: 'line-4A', name: 'Finish Line A', dailyCap: 500, assignments: [] },
+      { id: 'line-4B', name: 'Finish Line B', dailyCap: 500, assignments: [] },
+    ],
+  },
+  {
+    id: 'unit-5',
+    name: 'Stitching Unit 3',
+    lines: [
+      { id: 'line-5A', name: 'Line 3A', dailyCap: 275, assignments: [] },
+      { id: 'line-5B', name: 'Line 3B', dailyCap: 275, assignments: [] },
+    ],
+  },
+  {
+    id: 'unit-6',
+    name: 'Specialty Unit',
+    lines: [
+      { id: 'line-6A', name: 'Embroidery Line', dailyCap: 150, assignments: [] },
+    ],
+  },
+  {
+    id: 'unit-7',
+    name: 'Stitching Unit 4',
+    lines: [
+      { id: 'line-7A', name: 'Line 4A', dailyCap: 320, assignments: [] },
+      { id: 'line-7B', name: 'Line 4B', dailyCap: 320, assignments: [] },
+      { id: 'line-7C', name: 'Line 4C', dailyCap: 320, assignments: [] },
+    ],
+  },
+  {
+    id: 'unit-8',
+    name: 'Cutting Unit B',
+    lines: [
+      { id: 'line-8A', name: 'Cutting Line B', dailyCap: 1200, assignments: [] },
+    ],
+  },
 ];
