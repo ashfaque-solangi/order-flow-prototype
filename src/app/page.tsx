@@ -629,8 +629,8 @@ const handleAutoPlan = (ordersToPlan: { orderId: string, quantity: number }[], d
         />
         <main className="flex flex-col flex-1 p-4 lg:p-6 gap-6 overflow-y-auto">
           <OrdersSection orders={availableOrders} />
-          <UnitsSection units={units} onUnassign={handleUnassignOrder} />
-          <TimelineSection units={units} selectedMonth={selectedMonth} allLines={allLines} />
+          <UnitsSection units={units} />
+          <TimelineSection units={units} selectedMonth={selectedMonth} allLines={allLines} onUnassign={handleUnassignOrder} />
         </main>
 
         {isAssignModalOpen && selectedOrder && (
@@ -708,5 +708,7 @@ const handleAutoPlan = (ordersToPlan: { orderId: string, quantity: number }[], d
     </ClientOnlyDndProvider>
   );
 }
+
+    
 
     

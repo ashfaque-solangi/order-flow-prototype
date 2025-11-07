@@ -13,6 +13,7 @@ type TimelineRowProps = {
   line: ProductionLine & { unitName: string };
   days: Date[];
   monthStart: Date;
+  onUnassign: (orderId: string, assignmentId: string, lineId: string) => void;
 };
 
 function getAssignmentLayout(assignments: Assignment[]): Assignment[][] {
@@ -55,7 +56,7 @@ function getAssignmentLayout(assignments: Assignment[]): Assignment[][] {
 }
 
 
-export default function TimelineRow({ line, days, monthStart }: TimelineRowProps) {
+export default function TimelineRow({ line, days, monthStart, onUnassign }: TimelineRowProps) {
     
   const dailyUsage = useMemo(() => {
     const usage: Record<string, number> = {};
@@ -160,6 +161,7 @@ export default function TimelineRow({ line, days, monthStart }: TimelineRowProps
                             >
                                <TimelineAssignment
                                     assignment={{...assignment, lineId: line.id}}
+                                    onUnassign={onUnassign}
                                 />
                             </div>
                         );
@@ -173,3 +175,5 @@ export default function TimelineRow({ line, days, monthStart }: TimelineRowProps
     </div>
   );
 }
+
+    

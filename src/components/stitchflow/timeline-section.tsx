@@ -2,7 +2,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Unit, ProductionLine } from '@/lib/data';
+import { Unit, ProductionLine, Assignment } from '@/lib/data';
 import { getDaysInMonth, startOfMonth, format, addDays } from 'date-fns';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { CalendarDays } from 'lucide-react';
@@ -14,6 +14,7 @@ type TimelineSectionProps = {
   units: Unit[];
   selectedMonth: Date;
   allLines: (ProductionLine & { unitName: string })[];
+  onUnassign: (orderId: string, assignmentId: string, lineId: string) => void;
 };
 
 const CapacityLegend = () => (
@@ -38,7 +39,7 @@ const CapacityLegend = () => (
 );
 
 
-export default function TimelineSection({ units, selectedMonth, allLines }: TimelineSectionProps) {
+export default function TimelineSection({ units, selectedMonth, allLines, onUnassign }: TimelineSectionProps) {
   const { days, monthStart } = useMemo(() => {
     const monthStart = startOfMonth(selectedMonth);
     const numDays = getDaysInMonth(selectedMonth);
@@ -88,6 +89,7 @@ export default function TimelineSection({ units, selectedMonth, allLines }: Time
                 line={line}
                 days={days} 
                 monthStart={monthStart}
+                onUnassign={onUnassign}
               />
             ))}
           </div>
@@ -97,3 +99,5 @@ export default function TimelineSection({ units, selectedMonth, allLines }: Time
     </div>
   );
 }
+
+    

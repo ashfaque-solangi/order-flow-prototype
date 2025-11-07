@@ -7,11 +7,14 @@ import { useDraggable } from '@dnd-kit/core';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 import { parseISO, differenceInDays, startOfDay } from 'date-fns';
+import { X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 
 type TimelineAssignmentProps = {
   assignment: Assignment & { lineId: string };
   isDragging?: boolean;
+  onUnassign: (orderId: string, assignmentId: string, lineId: string) => void;
 };
 
 const TentativeStripe = () => (
@@ -25,7 +28,7 @@ const TentativeStripe = () => (
 );
 
 
-export default function TimelineAssignment({ assignment, isDragging = false }: TimelineAssignmentProps) {
+export default function TimelineAssignment({ assignment, isDragging = false, onUnassign }: TimelineAssignmentProps) {
     const { attributes, listeners, setNodeRef, transform, isDragging: dndIsDragging, active } = useDraggable({
         id: `assignment-${assignment.id}`,
         data: {
@@ -49,14 +52,20 @@ export default function TimelineAssignment({ assignment, isDragging = false }: T
 
     const color = isTentative ? 'bg-gray-400' : 'bg-primary';
 
+    const handleUnassignClick = (e: React.MouseEvent) => {
+        e.stopPropagation(); // Prevent drag from starting
+        e.preventDefault();
+        onUnassign(assignment.orderId, assignment.id, assignment.lineId);
+    }
+
 
   return (
-    <div ref={setNodeRef} style={style} {...listeners} {...attributes} className={cn("h-full w-full", isGhost && "opacity-0")}>
+    <div ref={setNodeRef} style={style} {...listeners} {...attributes} className={cn("h-full w-full group", isGhost && "opacity-0")}>
         <TooltipProvider>
             <Tooltip>
                 <TooltipTrigger asChild>
                     <div className={cn(
-                        "h-full w-full rounded-md text-white flex items-center px-2 text-xs font-medium overflow-hidden border border-black/20 relative",
+                        "h-full w-full rounded-md text-white flex items-center justify-between px-2 text-xs font-medium overflow-hidden border border-black/20 relative",
                         "hover:ring-2 hover:ring-offset-2 hover:ring-primary",
                         dndIsDragging || isDragging ? "cursor-grabbing shadow-lg" : "cursor-grab",
                         color
@@ -66,15 +75,28 @@ export default function TimelineAssignment({ assignment, isDragging = false }: T
                         <p className="truncate relative z-10">
                             {showShortLabel ? assignment.order_num.split('-').pop() : assignment.order_num} ({assignment.quantity.toLocaleString()})
                         </p>
+                        
+                         <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-5 w-5 shrink-0 text-primary-foreground/70 hover:bg-white/20 hover:text-white opacity-0 group-hover:opacity-100 transition-opacity z-20"
+                            onClick={handleUnassignClick}
+                            >
+                            <X className="h-3 w-3" />
+                            <span className="sr-only">Unassign</span>
+                        </Button>
                     </div>
                 </TooltipTrigger>
                 <TooltipContent>
                     <p className="font-bold">{assignment.order_num} {isTentative && <span className="text-amber-600 font-normal">(Tentative)</span>}</p>
                     <p>Quantity: {assignment.quantity.toLocaleString()}</p>
                     <p>Dates: {assignment.startDate} to {assignment.endDate}</p>
+                    <p className='text-xs text-muted-foreground mt-1'>Click X to unassign.</p>
                 </TooltipContent>
             </Tooltip>
         </TooltipProvider>
     </div>
   );
 }
+
+    

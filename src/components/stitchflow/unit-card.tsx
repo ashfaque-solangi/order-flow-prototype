@@ -4,9 +4,8 @@
 import { useMemo } from 'react';
 import { Unit } from '@/lib/data';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { X, Factory } from 'lucide-react';
+import { Factory } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
 import { useDroppable } from '@dnd-kit/core';
 import { cn } from '@/lib/utils';
@@ -14,10 +13,9 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/
 
 type UnitCardProps = {
   unit: Unit;
-  onUnassign: (orderId: string, assignmentId: string, lineId: string) => void;
 };
 
-export default function UnitCard({ unit, onUnassign }: UnitCardProps) {
+export default function UnitCard({ unit }: UnitCardProps) {
   const { isOver, setNodeRef } = useDroppable({
     id: unit.id,
     data: {
@@ -60,7 +58,7 @@ export default function UnitCard({ unit, onUnassign }: UnitCardProps) {
     <Card 
       ref={setNodeRef}
       className={cn(
-        "w-[300px] shrink-0 flex flex-col transition-all",
+        "w-[300px] shrink-0 flex flex-col transition-all h-[360px]",
         isOver && "ring-2 ring-primary ring-offset-2 scale-105"
       )}
     >
@@ -77,35 +75,18 @@ export default function UnitCard({ unit, onUnassign }: UnitCardProps) {
         </div>
       </CardContent>
       <CardFooter className="py-2 flex-1 flex flex-col min-h-0">
+        <p className='text-sm font-medium self-start mb-2'>Assigned Orders</p>
         <ScrollArea className="w-full h-full pr-3 -mr-3">
           <div className="space-y-2">
           {groupedAssignments.length > 0 ? (
-            <Accordion type="multiple" className="w-full">
+             <div className="w-full space-y-2">
               {groupedAssignments.map(([orderNum, group]) => (
-                 <AccordionItem value={orderNum} key={orderNum} className="border-b-0">
-                    <AccordionTrigger className="flex items-center justify-between text-sm p-2 rounded-md bg-slate-100 border shadow-sm hover:no-underline [&[data-state=open]]:rounded-b-none">
-                        <span className="font-medium truncate flex-1 text-left" title={orderNum}>{orderNum}</span>
-                        <Badge className="mx-2 shrink-0">{group.totalQuantity.toLocaleString()}</Badge>
-                    </AccordionTrigger>
-                    <AccordionContent className="p-2 pt-0 bg-slate-50 rounded-b-md border border-t-0 shadow-sm">
-                        {group.details.map(a => (
-                            <div key={a.id} className="flex items-center justify-between text-sm py-1.5 border-b last:border-b-0">
-                                <span className="text-xs text-muted-foreground">{a.lineName}</span>
-                                <Badge variant="outline" className="mx-2 shrink-0 bg-white">{a.quantity.toLocaleString()}</Badge>
-                                <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-6 w-6 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                                    onClick={() => onUnassign(a.orderId, a.id, a.lineId)}
-                                    >
-                                    <X className="h-3 w-3" />
-                                </Button>
-                            </div>
-                        ))}
-                    </AccordionContent>
-                 </AccordionItem>
+                <div key={orderNum} className="flex items-center justify-between text-sm p-2 rounded-md bg-slate-100 border shadow-sm">
+                    <span className="font-medium truncate flex-1 text-left" title={orderNum}>{orderNum}</span>
+                    <Badge className="mx-2 shrink-0">{group.totalQuantity.toLocaleString()}</Badge>
+                </div>
               ))}
-            </Accordion>
+            </div>
           ) : (
             <p className="text-sm text-muted-foreground text-center py-4">No orders assigned.</p>
           )}
@@ -115,3 +96,5 @@ export default function UnitCard({ unit, onUnassign }: UnitCardProps) {
     </Card>
   );
 }
+
+    
