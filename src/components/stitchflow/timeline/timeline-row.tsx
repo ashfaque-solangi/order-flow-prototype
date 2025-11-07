@@ -88,7 +88,7 @@ export default function TimelineRow({ line, days, monthStart, onUnassign }: Time
     <div className="contents group">
         {/* Row Header */}
         <div 
-            className="text-sm p-2 sticky left-0 bg-card z-20 border-r border-b group-hover:bg-muted/50 flex flex-col justify-center"
+            className="text-sm p-2 sticky left-0 bg-card z-10 border-r border-b group-hover:bg-muted/50 flex flex-col justify-center"
             style={{ height: `${rowHeight}px` }}
         >
             <p className="font-semibold truncate">{line.name}</p>
@@ -175,5 +175,3 @@ export default function TimelineRow({ line, days, monthStart, onUnassign }: Time
     </div>
   );
 }
-
-    
