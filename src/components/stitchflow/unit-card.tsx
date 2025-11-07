@@ -5,17 +5,19 @@ import { useMemo } from 'react';
 import { Unit } from '@/lib/data';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Factory } from 'lucide-react';
+import { Factory, X } from 'lucide-react';
 import { ScrollArea } from '../ui/scroll-area';
 import { useDroppable } from '@dnd-kit/core';
 import { cn } from '@/lib/utils';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+import { Button } from '../ui/button';
 
 type UnitCardProps = {
   unit: Unit;
+  onUnassign: (orderId: string, assignmentId: string | null, lineId: string | null) => void;
 };
 
-export default function UnitCard({ unit }: UnitCardProps) {
+export default function UnitCard({ unit, onUnassign }: UnitCardProps) {
   const { isOver, setNodeRef } = useDroppable({
     id: unit.id,
     data: {
@@ -29,11 +31,11 @@ export default function UnitCard({ unit }: UnitCardProps) {
       line.assignments.map(a => ({...a, lineId: line.id, lineName: line.name }))
     );
 
-    const groups: Record<string, { totalQuantity: number, details: typeof assignments }> = {};
+    const groups: Record<string, { orderId: string, totalQuantity: number, details: typeof assignments }> = {};
 
     assignments.forEach(a => {
         if (!groups[a.order_num]) {
-            groups[a.order_num] = { totalQuantity: 0, details: [] };
+            groups[a.order_num] = { orderId: a.orderId, totalQuantity: 0, details: [] };
         }
         groups[a.order_num].totalQuantity += a.quantity;
         groups[a.order_num].details.push(a);
@@ -81,9 +83,18 @@ export default function UnitCard({ unit }: UnitCardProps) {
           {groupedAssignments.length > 0 ? (
              <div className="w-full space-y-2">
               {groupedAssignments.map(([orderNum, group]) => (
-                <div key={orderNum} className="flex items-center justify-between text-sm p-2 rounded-md bg-slate-100 border shadow-sm">
+                <div key={orderNum} className="group flex items-center justify-between text-sm p-2 rounded-md bg-slate-100 border shadow-sm">
                     <span className="font-medium truncate flex-1 text-left" title={orderNum}>{orderNum}</span>
                     <Badge className="mx-2 shrink-0">{group.totalQuantity.toLocaleString()}</Badge>
+                     <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 shrink-0 text-muted-foreground hover:bg-red-100 hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => onUnassign(group.orderId, null, null)}
+                        >
+                        <X className="h-4 w-4" />
+                        <span className="sr-only">Unassign All</span>
+                    </Button>
                 </div>
               ))}
             </div>
@@ -96,5 +107,3 @@ export default function UnitCard({ unit }: UnitCardProps) {
     </Card>
   );
 }
-
-    

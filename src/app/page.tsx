@@ -265,29 +265,47 @@ export default function StitchFlowPage() {
     return { success: true };
   };
   
-  const handleUnassignOrder = (orderId: string, assignmentId: string, lineId: string) => {
-    let unassignedQuantity = 0;
+  const handleUnassignOrder = (orderId: string, assignmentId: string | null, lineId: string | null) => {
+    let totalUnassignedQuantity = 0;
     
-    setUnits(prevUnits => prevUnits.map(unit => ({
-      ...unit,
-      lines: unit.lines.map(line => {
-        if (line.id === lineId) {
-          const assignmentToRemove = line.assignments.find(a => a.id === assignmentId);
-          if (assignmentToRemove) {
-            unassignedQuantity = assignmentToRemove.quantity;
+    // If assignmentId and lineId are provided, unassign a single assignment
+    if (assignmentId && lineId) {
+      setUnits(prevUnits => prevUnits.map(unit => ({
+        ...unit,
+        lines: unit.lines.map(line => {
+          if (line.id === lineId) {
+            const assignmentToRemove = line.assignments.find(a => a.id === assignmentId);
+            if (assignmentToRemove) {
+              totalUnassignedQuantity = assignmentToRemove.quantity;
+              return {
+                ...line,
+                assignments: line.assignments.filter(a => a.id !== assignmentId),
+              };
+            }
           }
-          return {
-            ...line,
-            assignments: line.assignments.filter(a => a.id !== assignmentId),
-          };
-        }
-        return line;
-      })
-    })));
+          return line;
+        })
+      })));
+    } else {
+      // Unassign ALL assignments for a given orderId (from the UnitCard)
+      setUnits(prevUnits => prevUnits.map(unit => ({
+        ...unit,
+        lines: unit.lines.map(line => {
+            const assignmentsToKeep = line.assignments.filter(a => a.orderId !== orderId);
+            const assignmentsToRemove = line.assignments.filter(a => a.orderId === orderId);
+            const unassignedQty = assignmentsToRemove.reduce((sum, a) => sum + a.quantity, 0);
+            totalUnassignedQuantity += unassignedQty;
+            return {
+                ...line,
+                assignments: assignmentsToKeep,
+            };
+        })
+      })));
+    }
 
     setOrders(prevOrders => prevOrders.map(order => {
       if (order.id === orderId) {
-        const newAssigned = order.qty.assigned - unassignedQuantity;
+        const newAssigned = order.qty.assigned - totalUnassignedQuantity;
         return {
           ...order,
           qty: {
@@ -303,7 +321,7 @@ export default function StitchFlowPage() {
     
     toast({
         title: 'Order Unassigned',
-        description: 'The order has been removed from the production line.',
+        description: 'The assignment(s) have been removed from the production schedule.',
     });
   };
 
@@ -629,7 +647,7 @@ const handleAutoPlan = (ordersToPlan: { orderId: string, quantity: number }[], d
         />
         <main className="flex flex-col flex-1 p-4 lg:p-6 gap-6 overflow-y-auto">
           <OrdersSection orders={availableOrders} />
-          <UnitsSection units={units} />
+          <UnitsSection units={units} onUnassign={handleUnassignOrder} />
           <TimelineSection units={units} selectedMonth={selectedMonth} allLines={allLines} onUnassign={handleUnassignOrder} />
         </main>
 
@@ -700,6 +718,7 @@ const handleAutoPlan = (ordersToPlan: { orderId: string, quantity: number }[], d
                 <TimelineAssignment
                     assignment={activeItem as Assignment & { lineId: string }}
                     isDragging
+                    onUnassign={() => {}}
                 />
             </div>
           )
@@ -708,7 +727,3 @@ const handleAutoPlan = (ordersToPlan: { orderId: string, quantity: number }[], d
     </ClientOnlyDndProvider>
   );
 }
-
-    
-
-    
