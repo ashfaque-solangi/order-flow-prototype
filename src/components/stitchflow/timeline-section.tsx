@@ -58,7 +58,10 @@ export default function TimelineSection({ units, selectedMonth, allLines }: Time
   return (
     <div className="flex flex-col flex-1 min-h-0">
       <div className="flex justify-between items-center">
-        <h2 className="text-lg font-semibold mb-2 flex items-center"><CalendarDays className="w-5 h-5 mr-2 text-primary" /> Production Line Timeline</h2>
+        <h2 className="text-lg font-semibold mb-2 flex items-center">
+            <CalendarDays className="w-5 h-5 mr-2 text-primary" /> 
+            Production Line Timeline - <span className='text-primary ml-2'>{format(selectedMonth, 'MMMM yyyy')}</span>
+        </h2>
         <CapacityLegend />
       </div>
       <ScrollArea className="flex-1 rounded-lg border bg-card">
