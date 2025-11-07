@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -157,6 +158,7 @@ export default function StitchFlowPage() {
     if (!order) return { success: false, message: 'Order not found' };
   
     const allLines = units.flatMap(u => u.lines);
+    const assignmentDays = eachDayOfInterval({ start: dates.from, end: dates.to });
   
     // --- Validation Phase ---
     for (const assignment of assignments) {
@@ -166,35 +168,38 @@ export default function StitchFlowPage() {
       if (!targetLine) {
         return { success: false, message: `Production line ${assignment.lineId} not found.` };
       }
-  
-      const assignmentDays = eachDayOfInterval({ start: dates.from, end: dates.to });
-      const dailyQuantity = assignment.quantity / assignmentDays.length;
+      
+      const newAssignmentDailyQty = assignment.quantity / assignmentDays.length;
   
       for (const day of assignmentDays) {
         const dayStart = startOfDay(day);
   
-        // Calculate already assigned quantity on this day
-        const assignedOnDay = targetLine.assignments.reduce((sum, existingAssignment) => {
+        // Calculate the total quantity ALREADY assigned to this line on this specific day
+        const existingAssignedOnDay = targetLine.assignments.reduce((sum, existingAssignment) => {
           const existingStart = startOfDay(parseISO(existingAssignment.startDate));
           const existingEnd = startOfDay(parseISO(existingAssignment.endDate));
+          
           if (isWithinInterval(dayStart, { start: existingStart, end: existingEnd })) {
             const duration = differenceInDays(existingEnd, existingStart) + 1;
+            // Add the daily quantity of the existing assignment
             return sum + (existingAssignment.quantity / duration);
           }
           return sum;
         }, 0);
   
-        const availableCapacity = targetLine.dailyCap - assignedOnDay;
+        const projectedTotal = existingAssignedOnDay + newAssignmentDailyQty;
+
+        // Epsilon for floating point comparisons
+        const epsilon = 0.001; 
   
-        if (dailyQuantity > availableCapacity) {
-          const message = `On ${format(day, 'MMM d')}, line ${targetLine.name} has only ${Math.floor(availableCapacity).toLocaleString()} units of capacity available, but ${Math.ceil(dailyQuantity).toLocaleString()} are required.`;
+        if (projectedTotal > targetLine.dailyCap + epsilon) {
+          const message = `On ${format(day, 'MMM d')}, line ${targetLine.name} will exceed its capacity. It has ${Math.floor(existingAssignedOnDay).toLocaleString()} units assigned, and adding ${Math.ceil(newAssignmentDailyQty).toLocaleString()} units would reach ${Math.ceil(projectedTotal).toLocaleString()} / ${targetLine.dailyCap.toLocaleString()} capacity.`;
           return { success: false, message };
         }
       }
     }
   
     // --- State Update Phase ---
-    // If all validations passed, proceed with state updates
     let tempUnits = JSON.parse(JSON.stringify(units));
     let totalAssignedQuantity = 0;
   
